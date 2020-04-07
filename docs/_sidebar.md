@@ -1,3 +1,6 @@
+- 环境搭建
+  - Nodejs
+  - [Github Pages + docsify](java/docsify/docsify.md)
 - 设计模式
 
   - [第一章节](desgin-pattern/Java面试必备：手写单例模式.md)
