@@ -15,3 +15,5 @@
   - [spring的条件化装配](spring/【10分钟学Spring】：（三）你了解spring的高级装配吗_条件化装配bean.md)
 
 - 数据库
+  - [Mysql 主从复制](java/mysql/replication.md)
+  - [MySQL的万字总结](java/mysql/summary.md)
