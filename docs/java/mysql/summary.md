@@ -1,375 +1,803 @@
 # URL
-  - https://www.jianshu.com/p/2530d1185778
-<h2>01  开局一张图</h2>
-<p>这张图是<code>重点</code>！！！咱要先对MySQL有一个宏观的了解，知道他的执行流程。</p>
-<p>一条SQL语句过来的流程是什么样的？那就follow me。哈哈哈哈，皮一下很开心。</p>
-<ul>
-<li><p>1.当客户端连接到MySQL服务器时，服务器对其进行认证。可以通过用户名与密码认证，也可以通过SSL证书进行认证。登录认证后，服务器还会验证客户端是否有执行某个查询的操作权限。</p></li>
-<li><p>2.在正式查询之前，服务器会检查查询缓存，如果能找到对应的查询，则不必进行查询解析，优化，执行等过程，直接返回缓存中的结果集。</p></li>
-<li><p>3.MySQL的解析器会根据查询语句，构造出一个解析树，主要用于根据语法规则来验证语句是否正确，比如SQL的关键字是否正确，关键字的顺序是否正确。</p></li>
-</ul>
-<p>而预处理器主要是进一步校验，比如表名，字段名是否正确等</p>
-<ul>
-<li><p>4.查询优化器将解析树转化为查询计划，一般情况下，一条查询可以有很多种执行方式，最终返回相同的结果，优化器就是根据<code>成本</code>找到这其中最优的执行计划</p></li>
-<li><p>5.执行计划调用查询执行引擎，而查询引擎通过一系列API接口查询到数据</p></li>
-<li><p>6.得到数据之后，在返回给客户端的同时，会将数据存在查询缓存中</p></li>
-</ul>
-![在这里插入图片描述](./18375227-1c8d30f7eebed5dd.jpg)
+  - https://www.cnblogs.com/dasn/articles/7609562.html
 
-<h2>02  查询缓存</h2>
-<p>我们先通过<code>show variables like '%query_cache%'</code>来看一下默认的数据库配置，此为本地数据库的配置。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 391px; max-height: 285px;">
-<div class="image-container-fill" style="padding-bottom: 72.89%;"></div>
-<div class="image-view" data-width="391" data-height="285"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-42c0d6317f9323e9.png" data-original-width="391" data-original-height="285" data-original-format="image/png" data-original-filesize="87827"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<h3>2.1  概念</h3>
-<p>have_query_cache:当前的MYSQL版本是否支持“查询缓存”功能。</p>
-<p>query_cache_limit:MySQL能够缓存的最大查询结果，查询结果大于该值时不会被缓存。默认值是1048576(1MB)</p>
-<p>query_cache_min_res_unit:查询缓存分配的最小块（字节）。默认值是4096（4KB）。当查询进行时，MySQL把查询结果保存在query cache，但是如果保存的结果比较大，超过了query_cache_min_res_unit的值，这时候MySQL将一边检索结果，一边进行保存结果。他保存结果也是按默认大小先分配一块空间，如果不够，又要申请新的空间给他。如果查询结果比较小，默认的query_cache_min_res_unit可能造成大量的内存碎片，如果查询结果比较大，默认的query_cache_min_res_unit又不够，导致一直分配块空间，所以可以根据实际需求，调节query_cache_min_res_unit的大小。</p>
-<p><code>注：如果上面说的内容有点弯弯绕，那举个现实生活中的例子，比如咱现在要给运动员送水，默认的是500ml的瓶子，如果过来的是少年运动员，可能500ml太大了，他们喝不完，造成了浪费，那我们就可以选择300ml的瓶子，如果过来的是成年运动员，可能500ml不够，那他们一瓶喝完了，又开一瓶，直接不渴为止。那么那样开瓶子也要时间，我们就可以选择1000ml的瓶子。</code></p>
-<p>query_cache_size:为缓存查询结果分配的总内存。</p>
-<p>query_cache_type:默认为on，可以缓存除了以select sql_no_cache开头的所有查询结果。</p>
-<p>query_cache_wlock_invalidate:如果该表被锁住，是否返回缓存中的数据，默认是关闭的。</p>
-<h3>2.2  原理</h3>
-<p>MYSQL的查询缓存实质上是缓存SQL的hash值和该SQL的查询结果，如果运行相同的SQL,服务器直接从缓存中去掉结果，而不再去解析，优化，寻找最低成本的执行计划等一系列操作，大大提升了查询速度。</p>
-<p>但是万事有利也有弊。</p>
-<ul>
-<li>第一个弊端就是如果表的数据有一条发生变化，那么缓存好的结果将全部不再有效。这对于频繁更新的表，查询缓存是不适合的。</li>
-</ul>
-<p><code>比如一张表里面只有两个字段，分别是id和name，数据有一条为1，张三。我使用select * from 表名 where name=“张三”来进行查询，MySQL发现查询缓存中没有此数据，会进行一系列的解析，优化等操作进行数据的查询，查询结束之后将该SQL的hash和查询结果缓存起来，并将查询结果返回给客户端。但是这个时候我有新增了一条数据2，张三。如果我还用相同的SQL来执行，他会根据该SQL的hash值去查询缓存中，那么结果就错了。所以MySQL对于数据有变化的表来说，会直接清空关于该表的所有缓存。这样其实是效率是很差的。</code></p>
-<ul>
-<li>第二个弊端就是缓存机制是通过对SQL的hash，得出的值为key，查询结果为value来存放的，那么就意味着SQL必须完完全全一模一样，否则就命不中缓存。</li>
-</ul>
-<p><code>我们都知道hash值的规则，就算很小的查询，哈希出来的结果差距是很多的，所以select * from 表名 where name=“张三”和SELECT * FROM 表名 WHERE NAME=“张三”和select * from 表名 where name = “张三”，三个SQL哈希出来的值是不一样的，大小写和空格影响了他们，所以并不能命中缓存，但其实他们搜索结果是完全一样的。</code></p>
-<h3>2.3  生产如何设置MySQL Query Cache</h3>
-<p>先来看线上参数：</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 352px; max-height: 240px;">
-<div class="image-container-fill" style="padding-bottom: 68.17999999999999%;"></div>
-<div class="image-view" data-width="352" data-height="240"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-ab994b6bfd4d1e61.png" data-original-width="352" data-original-height="240" data-original-format="image/png" data-original-filesize="83326"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>我们发现将query_cache_type设置为OFF，其实网上资料和各大云厂商提供的云服务器都是将这个功能关闭的，从上面的原理来看，在一般情况下，<code>他的弊端大于优点</code>。</p>
-<h2>03  索引</h2>
-<h3>3.1  例子</h3>
-<p>创建一个名为user的表，其包括id，name，age，sex等字段信息。此外，id为主键聚簇索引，idx_name为非聚簇索引。</p>
-<pre><code>CREATE TABLE `user` (
-  `id` varchar(10) NOT NULL DEFAULT '',
-  `name` varchar(10) DEFAULT NULL,
-  `age` int(11) DEFAULT NULL,
-  `sex` varchar(10) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_name` (`name`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-</code></pre>
-<p>我们将其设置10条数据，便于下面的索引的理解。</p>
-<pre><code>INSERT INTO `user` VALUES ('1', 'andy', '20', '女');
-INSERT INTO `user` VALUES ('10', 'baby', '12', '女');
-INSERT INTO `user` VALUES ('2', 'kat', '12', '女');
-INSERT INTO `user` VALUES ('3', 'lili', '20', '男');
-INSERT INTO `user` VALUES ('4', 'lucy', '22', '女');
-INSERT INTO `user` VALUES ('5', 'bill', '20', '男');
-INSERT INTO `user` VALUES ('6', 'zoe', '20', '男');
-INSERT INTO `user` VALUES ('7', 'hay', '20', '女');
-INSERT INTO `user` VALUES ('8', 'tony', '20', '男');
-INSERT INTO `user` VALUES ('9', 'rose', '21', '男');
-</code></pre>
-<h3>3.2  聚簇索引（主键索引）</h3>
-<p>先来一张图镇楼，接下来就是看图说话。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 596px; max-height: 427px;">
-<div class="image-container-fill" style="padding-bottom: 71.64%;"></div>
-<div class="image-view" data-width="596" data-height="427"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-1c8d30f7eebed5dd.png" data-original-width="596" data-original-height="427" data-original-format="image/png" data-original-filesize="126958"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>他包含两个特点：</p>
-<p>1.使用记录主键值的大小来进行记录和页的排序。</p>
-<p>页内的记录是按照主键的大小顺序排成一个单项链表。</p>
-<p>各个存放用户记录的页也是根据页中用户记录的主键大小顺序排成一个双向链表。</p>
-<p>2.叶子节点存储的是<code>完整的用户记录</code>。</p>
-<pre><code>注：聚簇索引不需要我们显示的创建，他是由InnoDB存储引擎自动为我们创建的。如果没有主键，其也会默认创建一个。复制代码
-</code></pre>
-<h3>3.3  非聚簇索引（二级索引）</h3>
-<p>上面的聚簇索引只能在搜索条件是主键时才能发挥作用，因为聚簇索引可以根据主键进行排序的。如果搜索条件是name，在刚才的聚簇索引上，我们可能遍历，挨个找到符合条件的记录，但是，这样真的是太蠢了，MySQL不会这样做的。</p>
-<p>如果我们想让搜索条件是name的时候，也能使用索引，那可以多创建一个基于name的二叉树。如下图。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 619px; max-height: 407px;">
-<div class="image-container-fill" style="padding-bottom: 65.75%;"></div>
-<div class="image-view" data-width="619" data-height="407"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-c5414349d1c19c5c.png" data-original-width="619" data-original-height="407" data-original-format="image/png" data-original-filesize="81211"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>他与聚簇索引的不同：</p>
-<p>1.叶子节点内部使用name字段排序，叶子节点之间也是使用name字段排序。</p>
-<p>2.叶子节点不再是完整的数据记录，而是name和主键值。</p>
-<p><code>为什么不再是完整信息？</code></p>
-<p>MySQL只让聚簇索引的叶子节点存放完整的记录信息，因为如果有好几个非聚簇索引，他们的叶子节点也存放完整的记录绩效，那就不浪费空间啦。</p>
-<p><code>如果我搜索条件是基于name，需要查询所有字段的信息，那查询过程是啥？</code></p>
-<p>1.根据查询条件，采用name的非聚簇索引，先定位到该非聚簇索引某些记录行。</p>
-<p>2.根据记录行找到相应的id，再根据id到聚簇索引中找到相关记录。这个过程叫做<code>回``表</code>。</p>
-<h3>3.4  联合索引</h3>
-<p>图就不画了，简单来说，如果name和age组成一个联合索引，那么先按name排序，如果name一样，就按age排序。</p>
-<h3>3.5  一些原则</h3>
-<p>1.最左前缀原则。一个联合索引（a,b,c）,如果有一个查询条件有a，有b，那么他则走索引，如果有一个查询条件没有a，那么他则不走索引。</p>
-<p>2.使用唯一索引。具有多个重复值的列，其索引效果最差。例如，存放姓名的列具有不同值，很容易区分每行。而用来记录性别的列，只含有“男”，“女”，不管搜索哪个值，都会得出大约一半的行，这样的索引对性能的提升不够高。</p>
-<p>3.不要过度索引。每个额外的索引都要占用额外的磁盘空间，并降低写操作的性能。在修改表的内容时，索引必须进行更新，有时可能需要重构，因此，索引越多，所花的时间越长。</p>
-<p>4、索引列不能参与计算，保持列“干净”，比如from_unixtime(create_time) = ’2014-05-29’就不能使用到索引，原因很简单，b+树中存的都是数据表中的字段值，但进行检索时，需要把所有元素都应用函数才能比较，显然成本太大。所以语句应该写成create_time = unix_timestamp(’2014-05-29’);</p>
-<p>5.一定要设置一个主键。前面聚簇索引说到如果不指定主键，InnoDB会自动为其指定主键，这个我们是看不见的。反正都要生成一个主键的，还不如我们设置，以后在某些搜索条件时还能用到主键的聚簇索引。</p>
-<p>6.主键推荐用自增id，而不是uuid。上面的聚簇索引说到每页数据都是排序的，并且页之间也是排序的，如果是uuid，那么其肯定是随机的，其可能从中间插入，导致页的分裂，产生很多表碎片。如果是自增的，那么其有从小到大自增的，有顺序，那么在插入的时候就添加到当前索引的后续位置。当一页写满，就会自动开辟一个新的页。</p>
-<pre><code>注：如果自增id用完了，那将字段类型改为bigint，就算每秒1万条数据，跑100年，也没达到bigint的最大值。复制代码
-</code></pre>
-<h3>3.6  万年面试题（为什么索引用B+树）</h3>
-<p>1、 B+树的磁盘读写代价更低：B+树的内部节点并没有指向关键字具体信息的指针，因此其内部节点相对B树更小，如果把所有同一内部节点的关键字存放在同一盘块中，那么盘块所能容纳的关键字数量也越多，一次性读入内存的需要查找的关键字也就越多，相对<code>IO读写次数就降低</code>了。</p>
-<p>2、由于B+树的数据都存储在叶子结点中，分支结点均为索引，方便扫库，只需要扫一遍叶子结点即可，但是B树因为其分支结点同样存储着数据，我们要找到具体的数据，需要进行一次中序遍历按序来扫，所以B+树更加适合在<code>区间查询</code>的情况，所以通常B+树用于数据库索引。</p>
-<h2>04  优化器</h2>
-<p>在开篇的图里面，我们知道了SQL语句从客户端经由网络协议到查询缓存，如果没有命中缓存，再经过解析工作，得到准确的SQL，现在就来到了我们这模块说的优化器。</p>
-<p>首先，我们知道每一条SQL都有不同的执行方法，要不通过索引，要不通过全表扫描的方式。</p>
-<p>那么问题就来了，MySQL是如何选择时间最短，占用内存最小的执行方法呢？</p>
-<h3>4.1  什么是成本？</h3>
-<p>1.I/O成本。数据存储在硬盘上，我们想要进行某个操作需要将其加载到内存中，这个过程的时间被称为I/O成本。默认是1。</p>
-<p>2.CPU成本。在内存对结果集进行排序的时间被称为CPU成本。默认是0.2。</p>
-<h3>4.2  单表查询的成本</h3>
-<p>先来建一个用户表dev_user，里面包括主键id，用户名username，密码password，外键user_info_id，状态status，外键main_station_id，是否外网访问visit，这七个字段。索引有两个，一个是主键的聚簇索引，另一个是显式添加的以username为字段的唯一索引uname_unique。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 700px; max-height: 80px;">
-<div class="image-container-fill" style="padding-bottom: 10.879999999999999%;"></div>
-<div class="image-view" data-width="735" data-height="80"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-91e6da824076e362.png" data-original-width="735" data-original-height="80" data-original-format="image/png" data-original-filesize="39454"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>如果搜索条件是select * from dev_user where username='XXX'，那么MySQL是如何选择相关索引呢？</p>
-<p>1.使用所有可能用到的索引</p>
-<p>我们可以看到搜索条件username，所以可能走uname_unique索引。也可以做聚簇索引，也就是全表扫描。</p>
-<p>2.计算全表扫描代价</p>
-<p>我们通过<code>show table status like ‘dev_user’</code>命令知道<code>rows</code>和<code>data_length</code>字段，如下图。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 700px; max-height: 155px;">
-<div class="image-container-fill" style="padding-bottom: 12.11%;"></div>
-<div class="image-view" data-width="1280" data-height="155"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-ad55c097cb502d93.png" data-original-width="1280" data-original-height="155" data-original-format="image/png" data-original-filesize="111939"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>rows：表示表中的记录条数，但是这个数据不准确，是个估计值。</p>
-<p>data_length:表示表占用的存储空间字节数。</p>
-<p><code>data_length=聚簇索引的页面数量X每个页面的大小</code></p>
-<p>反推出页面数量=1589248÷16÷1024=97</p>
-<p>I/O成本：97X1=97</p>
-<p>CPU成本：6141X0.2=1228</p>
-<p>总成本：97+1228=1325</p>
-<p>3.计算使用不同索引执行查询的代价</p>
-<p>因为要查询出满足条件的所有字段信息，所以要考虑回表成本。</p>
-<p>I/O成本=1+1X1=2(范围区间的数量+预计二级记录索引条数)</p>
-<p>CPU成本=1X0.2+1X0.2=0.4(读取二级索引的成本+回表聚簇索引的成本)</p>
-<p>总成本=I/O成本+CPU成本=2.4</p>
-<p>4.对比各种执行方案的代价，找出成本最低的那个</p>
-<p>上面两个数字一对比，成本是采用uname_unique索引成本最低。</p>
-<h3>4.3  多表查询的成本</h3>
-<p>对于两表连接查询来说，他的查询成本由下面两个部分构成：</p>
-<ul>
-<li>单次查询驱动表的成本</li>
-<li>多次查询被驱动表的成本（具体查询多次取决于对驱动表查询的结果集有多少个记录）</li>
-</ul>
-<h3>4.4  index dive</h3>
-<p>如果前面的搜索条件不是等值，而是区间，如<code>select * from dev_user where username&gt;'admin' and username&lt;'test'</code>这个时候我们是无法看出需要回表的数量。</p>
-<p>步骤1：先根据username&gt;'admin'这个条件找到第一条记录，称为<code>区间最左记录</code>。</p>
-<p>步骤2：再根据username&lt;'test'这个条件找到最后一条记录，称为<code>区间最右记录</code>。</p>
-<p>步骤3：如果区间最左记录和区间最右记录相差不是很远，可以准确统计出需要回表的数量。如果相差很远，就先计算10页有多少条记录，再乘以页面数量，最终模糊统计出来。</p>
-<h2>05  Explain</h2>
-<h3>5.1  产品来索命</h3>
-<p>产品：为什么这个页面出来这么慢？</p>
-<p>开发：因为你查的数据多呗，他就是这么慢</p>
-<p>产品：我不管，我要这个页面快点，你这样，客户怎么用啊</p>
-<p>开发：。。。。。。。你行你来</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 500px; max-height: 449px;">
-<div class="image-container-fill" style="padding-bottom: 89.8%;"></div>
-<div class="image-view" data-width="500" data-height="449"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-7f6e414bed8e9694.png" data-original-width="500" data-original-height="449" data-original-format="image/png" data-original-filesize="306785"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>哈哈哈哈，不瞎BB啦，如果有些SQL贼慢，我们需要知道他有没有走索引，走了哪个索引，这个时候我就需要通过explain关键字来深入了解MySQL内部是如何执行的。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 700px; max-height: 175px;">
-<div class="image-container-fill" style="padding-bottom: 22.18%;"></div>
-<div class="image-view" data-width="789" data-height="175"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-12dc862c5053cd89.png" data-original-width="789" data-original-height="175" data-original-format="image/png" data-original-filesize="84358"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<h3>5.2  id</h3>
-<p>一般来说一个select一个唯一id，如果是子查询，就有两个select，id是不一样的，但是凡事有例外，有些子查询的，他们id是一样的。</p>
-<br>
-<div class="image-package">
-<div class="image-container" style="max-width: 700px; max-height: 153px;">
-<div class="image-container-fill" style="padding-bottom: 20.51%;"></div>
-<div class="image-view" data-width="746" data-height="153"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-65d384dbb5af5c09.png" data-original-width="746" data-original-height="153" data-original-format="image/png" data-original-filesize="93904"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>这是为什么呢？</p>
-<p>那是因为MySQL在进行优化的时候已经将子查询改成了连接查询，而连接查询的id是一样的。</p>
-<h3>5.3  select_type</h3>
-<ul>
-<li>simple：不包括union和子查询的查询都算simple类型。</li>
-<li>primary：包括union，union all，其中最左边的查询即为primary。</li>
-<li>union：包括union，union all，除了最左边的查询，其他的查询类型都为union。</li>
-</ul>
-<h3>5.4 table</h3>
-<p>显示这一行是关于哪张表的。</p>
-<h3>5.5 type：访问方法</h3>
-<ul>
-<li>ref：普通二级索引与常量进行等值匹配</li>
-<li>ref_or_null：普通二级索引与常量进行等值匹配，该索引可能是null</li>
-<li>const：主键或唯一二级索引列与常量进行等值匹配</li>
-<li>range：范围区间的查询</li>
-<li>all：全表扫描</li>
-</ul>
-<h3>5.6 possible_keys</h3>
-<p>对某表进行单表查询时可能用到的索引</p>
-<h3>5.7 key</h3>
-<p>经过查询优化器计算不同索引的成本，最终选择成本最低的索引</p>
-<h3>5.8 rows</h3>
-<ul>
-<li>如果使用全表扫描，那么rows就代表需要扫描的行数</li>
-<li>如果使用索引，那么rows就代表预计扫描的行数</li>
-</ul>
-<h3>5.9 filtered</h3>
-<ul>
-<li>如果全表扫描，那么filtered就代表满足搜索条件的记录的满分比</li>
-<li>如果是索引，那么filtered就代表除去索引对应的搜索，其他搜索条件的百分比</li>
-</ul>
-<h2>06 redo日志（物理日志）</h2>
-<p>InnoDB存储引擎是以页为单位来管理存储空间的，我们进行的增删改查操作都是将页的数据加载到内存中，然后进行操作，再将数据刷回到硬盘上。</p>
-<p>那么问题就来了，如果我要给张三转账100块钱，事务已经提交了，这个时候InnoDB把数据加载到内存中，这个时候还没来得及刷入硬盘，突然停电了，数据库崩了。重启之后，发现我的钱没有转成功，这不是尴尬了吗？</p>
-<p>解决方法很明显，我们在硬盘加载到内存之后，进行一系列操作，一顿操作猛如虎，还未刷新到硬盘之前，先记录下，在XXX位置我的记录中金额减100，在XXX位置张三的记录中金额加100，然后再进行增删改查操作，最后刷入硬盘。如果未刷入硬盘，在重启之后，先加载之前的记录，那么数据就回来了。</p>
-<p>这个记录就叫做重做日志，即redo日志。他的目的是想让已经提交的事务对数据的修改是永久的，就算他重启，数据也能恢复出来。</p>
-<h3>6.1  log buffer（日志缓冲区）</h3>
-<p>为了解决磁盘速度过慢的问题，redo日志不能直接写入磁盘，咱先整一大片连续的内存空间给他放数据。这一大片内存就叫做日志缓冲区，即log buffer。到了合适的时候，再刷入硬盘。至于什么时候是合适的，这个下一章节说。</p>
-<p>我们可以通过<code>show VARIABLES like 'innodb_log_buffer_size'</code>命令来查看当前的日志缓存大小，下图为线上的大小。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 407px; max-height: 135px;">
-<div class="image-container-fill" style="padding-bottom: 33.17%;"></div>
-<div class="image-view" data-width="407" data-height="135"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-61ec519d9b02b091.png" data-original-width="407" data-original-height="135" data-original-format="image/png" data-original-filesize="44556"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<h3>6.2 redo日志刷盘时机</h3>
-<p>由于redo日志一直都是增长的，且内存空间有限，数据也不能一直待在缓存中， 我们需要将其刷新至硬盘上。</p>
-<p>那什么时候刷新到硬盘呢？</p>
-<ul>
-<li>log buffer空间不足。上面有指定缓冲区的内存大小，MySQL认为日志量已经占了 总容量的一半左右，就需要将这些日志刷新到磁盘上。</li>
-<li>事务提交时。我们使用redo日志的目的就是将他未刷新到磁盘的记录保存起来，防止 丢失，如果数据提交了，我们是可以不把数据提交到磁盘的，但为了保证持久性，必须 把修改这些页面的redo日志刷新到磁盘。</li>
-<li>后台线程不同的刷新 后台有一个线程，大概每秒都会将log buffer里面的redo日志刷新到硬盘上。</li>
-<li>checkpoint 下下小节讲</li>
-</ul>
-<h3>6.3 redo日志文件组</h3>
-<p>我们可以通过<code>show variables like 'datadir'</code>命令找到相关目录，底下有两个文件， 分别是ib_logfile0和ib_logfile1,如下图所示。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 483px; max-height: 153px;">
-<div class="image-container-fill" style="padding-bottom: 31.680000000000003%;"></div>
-<div class="image-view" data-width="483" data-height="153"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-31dd34338d350428.png" data-original-width="483" data-original-height="153" data-original-format="image/png" data-original-filesize="44921"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<div class="image-package">
-<div class="image-container" style="max-width: 623px; max-height: 431px;">
-<div class="image-container-fill" style="padding-bottom: 69.17999999999999%;"></div>
-<div class="image-view" data-width="623" data-height="431"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-8116696aedd60988.png" data-original-width="623" data-original-height="431" data-original-format="image/png" data-original-filesize="260850"></div>
-</div>
-<div class="image-caption">image.png</div>
-</div>
-<p>我们将缓冲区log buffer里面的redo日志刷新到这个两个文件里面，他们写入的方式 是循环写入的，先写ib_logfile0,再写ib_logfile1,等ib_logfile1写满了，再写ib_logfile0。 那这样就会存在一个问题，如果ib_logfile1写满了，再写ib_logfile0，之前ib_logfile0的内容 不就被覆盖而丢失了吗？ 这就是checkpoint的工作啦。</p>
-<h3>6.4  checkpoint</h3>
-<p>redo日志是为了系统崩溃后恢复脏页用的，如果这个脏页可以被刷新到磁盘上，那么 他就可以功成身退，被覆盖也就没事啦。</p>
-<p>冲突补习</p>
-<p>从系统运行开始，就不断的修改页面，会不断的生成redo日志。redo日志是不断 递增的，MySQL为其取了一个名字日志序列号Log Sequence Number，简称lsn。 他的初始化的值为8704，用来记录当前一共生成了多少redo日志。</p>
-<p>redo日志是先写入log buffer，之后才会被刷新到磁盘的redo日志文件。MySQL为其 取了一个名字flush_to_disk_lsn。用来说明缓存区中有多少的脏页数据被刷新到磁盘上啦。 他的初始值和lsn一样，后面的差距就有了。</p>
-<p>做一次checkpoint分为两步</p>
-<ul>
-<li>计算当前系统可以被覆盖的redo日志对应的lsn最大值是多少。redo日志可以被覆盖， 意味着他对应的脏页被刷新到磁盘上，只要我们计算出当前系统中最早被修改的oldest_modification, 只要系统中lsn小于该节点的oldest_modification值磁盘的redo日志都是可以被覆盖的。</li>
-<li>将lsn过程中的一些数据统计。</li>
-</ul>
-<h2>07 undo日志（这部分不是很明白，所以大概说了）</h2>
-<h3>7.1 基本概念</h3>
-<p>undo log有两个作用：提供回滚和多个行版本控制(<code>MVCC</code>)。</p>
-<p>undo log和redo log记录物理日志不一样，它是逻辑日志。可以认为当delete一条记录时，undo log中会记录一条对应的insert记录，反之亦然，当update一条记录时，它记录一条对应相反的update记录。</p>
-<p>举个例子:</p>
-<p>insert into a(id) values(1);(redo)<br>
-这条记录是需要回滚的。<br>
-回滚的语句是delete from a where id = 1;(undo)</p>
-<p>试想想看。如果没有做insert into a(id) values(1);(redo)<br>
-那么delete from a where id = 1;(undo)这句话就没有意义了。</p>
-<p>现在看下正确的恢复:<br>
-先insert into a(id) values(1);(redo)<br>
-然后delete from a where id = 1;(undo)<br>
-系统就回到了原先的状态，没有这条记录了</p>
-<h3>7.2  存储方式</h3>
-<p>是存在段之中。</p>
-<h2>08  事务</h2>
-<h3>8.1  引言</h3>
-<p>事务中有一个隔离性特征，理论上在某个事务对某个数据进行访问时，其他事务应该排序，当该事务提交之后，其他事务才能继续访问这个数据。</p>
-<p>但是这样子对性能影响太大，我们既想保持事务的隔离性，又想让服务器在出来多个事务时性能尽量高些，所以只能舍弃一部分隔离性而去性能。</p>
-<h3>8.2  事务并发执行的问题</h3>
-<ul>
-<li>脏写（这个太严重了，任何隔离级别都不允许发生）</li>
-</ul>
-<p>sessionA：修改了一条数据，回滚掉</p>
-<p>sessionB：修改了同一条数据，提交掉</p>
-<p>对于sessionB来说，明明数据更新了也提交了事务，不能说自己啥都没干</p>
-<ul>
-<li>脏读：一个事务读到另一个未提交事务修改的数据</li>
-</ul>
-<p>session A：查询，得到某条数据</p>
-<p>session B：修改某条数据，但是最后回滚掉啦</p>
-<p>session A：在sessionB修改某条数据之后，在回滚之前，读取了该条记录</p>
-<p>对于session A来说，读到了session回滚之前的脏数据</p>
-<ul>
-<li>不可重复读：前后多次读取，同一个数据内容不一样</li>
-</ul>
-<p>session A：查询某条记录<br>
-session B : 修改该条记录，并提交事务<br>
-session A : 再次查询该条记录，发现前后查询不一致</p>
-<ul>
-<li>幻读：前后多次读取，数据总量不一致</li>
-</ul>
-<p>session A：查询表内所有记录<br>
-session B : 新增一条记录，并查询表内所有记录<br>
-session A : 再次查询该条记录，发现前后查询不一致</p>
-<h3>8.3  四种隔离级别</h3>
-<p>数据库都有的四种隔离级别，MySQL事务默认的隔离级别是可重复读，而且MySQL可以解决了幻读的问题。</p>
-<ul>
-<li>未提交读：脏读，不可重复读，幻读都有可能发生</li>
-<li>已提交读：不可重复读，幻读可能发生</li>
-<li>可重复读：幻读可能发生</li>
-<li>可串行化：都不可能发生</li>
-</ul>
-<p>但凡事没有百分百，emmmm，其实MySQL并没有百分之百解决幻读的问题。</p>
-<div class="image-package">
-<div class="image-container" style="max-width: 140px; max-height: 150px;">
-<div class="image-container-fill" style="padding-bottom: 107.13999999999999%;"></div>
-<div class="image-view" data-width="140" data-height="150"><img data-original-src="//upload-images.jianshu.io/upload_images/18375227-4ca72034844a348f" data-original-width="140" data-original-height="150" data-original-format="image/gif" data-original-filesize="140151"></div>
-</div>
-<div class="image-caption">image</div>
-</div>
-<p>举个例子：</p>
-<p>session A：查询某条不存在的记录。</p>
-<p>session B：新增该条不存在的记录，并提交事务。</p>
-<p>session A：再次查询该条不存在的记录，是查询不出来的，但是如果我尝试修改该条记录，并提交，其实他是可以修改成功的。</p>
-<h3>8.4  MVCC</h3>
-<p>版本链：对于该记录的每次更新，都会将值放在一条undo日志中，算是该记录的一个旧版本，随着更新次数的增多，所有版本都会被roll_pointer属性连接成一个链表，即为版本链。</p>
-<p>readview：</p>
-<ul>
-<li>未提交读：因为可以读到未提交事务修改的记录，所以可以直接读取记录的最新版本就行</li>
-<li>已提交读：每次读取之前都生成一个readview</li>
-<li>可重复读：只有在第一次读取的时候才生成readview</li>
-<li>可串行化：InnoDB涉及了加锁的方式来访问记录</li>
-</ul>
-<blockquote>
-<p>作者：学习Java的小姐姐<br>
-原文链接：<a href="https://links.jianshu.com/go?to=https%3A%2F%2Fjuejin.im%2Fpost%2F5dfc846051882512327a63b6" target="_blank">https://juejin.im/post/5dfc846051882512327a63b6</a></p>
-</blockquote>
-</article><div></div><div class="_19DgIp" style="margin-top:24px;margin-bottom:24px"></div></section><section class="sFiE8U" aria-label="google-ad"><ins class="adsbygoogle" style="display:inline-block;width:730px;height:114px" data-ad-client="ca-pub-3077285224019295" data-ad-slot="2979144022"></ins></section><div id="note-page-comment"><div class="lazyload-placeholder"></div></div><section class="ouvJEz"></section></div><aside class="_2OwGUo"><div><div class=""><section class="sFiE8U" aria-label="google-ad"><ins class="adsbygoogle" style="display:inline-block;width:260px;height:173px" data-ad-client="ca-pub-3077285224019295" data-ad-slot="1970871612"></ins></section></div></div></aside></div></div><footer style="width:100%"><div class="_2xr8G8"><div class="_1Jdfvb"><div class="TDvCqd"><textarea class="W2TSX_" placeholder="写下你的评论..."></textarea></div><div class="-pXE92"><div class="_3nj4GN" role="button" tabindex="0" aria-label="添加评论"><i aria-label="ic-reply" class="anticon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false" class=""><use xlink:href="#ic-reply"></use></svg></i><span>评论<!-- -->4</span></div><div class="_3nj4GN" role="button" tabindex="0" aria-label="给文章点赞"><i aria-label="ic-like" class="anticon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false" class=""><use xlink:href="#ic-like"></use></svg></i><span>赞<!-- -->112</span></div><div class="_3nj4GN ant-dropdown-trigger" role="button" tabindex="0" aria-label="更多操作"><i aria-label="ic-others" class="anticon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false" class=""><use xlink:href="#ic-others"></use></svg></i></div></div></div></div><div class="_1LI0En" style="height:0"></div></footer><div class="_3Pnjry"><div class="_1pUUKr"><div class="_2VdqdF" role="button" tabindex="-1" aria-label="给文章点赞"><i aria-label="ic-like" class="anticon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false" class=""><use xlink:href="#ic-like"></use></svg></i></div><div class="P63n6G"><div class="_2LKTFF"><span class="_1GPnWJ" role="button" tabindex="-1" aria-label="查看点赞列表">112<!-- -->赞</span><span class="_1GPnWJ">113<!-- -->赞</span></div></div></div><div class="_1pUUKr"><div class="_2VdqdF" role="button" tabindex="-1" aria-label="赞赏作者"><i aria-label="ic-shang" class="anticon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false" class=""><use xlink:href="#ic-shang"></use></svg></i></div><div class="P63n6G" role="button" tabindex="-1" aria-label="查看赞赏列表">赞赏</div></div></div></div><script id="__NEXT_DATA__" type="application/json">{"dataManager":"[]","props":{"isServer":true,"initialState":{"global":{"fontType":"black","locale":"zh-CN","readMode":"day","seoList":[],"done":false,"$ua":{"value":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Safari/537.36","isIE11":false,"earlyIE":null,"chrome":"80.0","firefox":null,"safari":null,"isMac":false},"$diamondRate":{"displayable":false,"rate":0},"$modal":{"ContributeModal":false,"RewardListModal":false,"PayModal":false,"CollectionModal":false,"LikeListModal":false,"ReportModal":false,"QRCodeShareModal":false,"BookCatalogModal":false,"RewardModal":false}},"note":{"data":{"is_author":false,"last_updated_at":1578387112,"public_title":"MySQL的万字总结（缓存，索引，Explain，事务，redo日志等）","purchased":false,"liked_note":false,"comments_count":4,"free_content":"\u003cul\u003e\n\u003cli\u003e\u003cstrong\u003e\u003ca href=\"https://www.jianshu.com/p/9ba9a460ed75\" target=\"_blank\"\u003e微服务架构之春招总结：SpringCloud、Docker、Dubbo与SpringBoot\u003c/a\u003e\u003c/strong\u003e\u003c/li\u003e\n\u003cli\u003e\u003cstrong\u003e欢迎大家关注我的专栏：【\u003ca href=\"https://www.jianshu.com/c/8d050bf89c61\" target=\"_blank\"\u003eJava架构技术进阶\u003c/a\u003e】，里面有大量batj面试题集锦，还有各种技术分享，如有好文章也欢迎投稿哦~\u003c/strong\u003e\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e01  开局一张图\u003c/h2\u003e\n\u003cp\u003e这张图是\u003ccode\u003e重点\u003c/code\u003e！！！咱要先对MySQL有一个宏观的了解，知道他的执行流程。\u003c/p\u003e\n\u003cp\u003e一条SQL语句过来的流程是什么样的？那就follow me。哈哈哈哈，皮一下很开心。\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e\u003cp\u003e1.当客户端连接到MySQL服务器时，服务器对其进行认证。可以通过用户名与密码认证，也可以通过SSL证书进行认证。登录认证后，服务器还会验证客户端是否有执行某个查询的操作权限。\u003c/p\u003e\u003c/li\u003e\n\u003cli\u003e\u003cp\u003e2.在正式查询之前，服务器会检查查询缓存，如果能找到对应的查询，则不必进行查询解析，优化，执行等过程，直接返回缓存中的结果集。\u003c/p\u003e\u003c/li\u003e\n\u003cli\u003e\u003cp\u003e3.MySQL的解析器会根据查询语句，构造出一个解析树，主要用于根据语法规则来验证语句是否正确，比如SQL的关键字是否正确，关键字的顺序是否正确。\u003c/p\u003e\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003e而预处理器主要是进一步校验，比如表名，字段名是否正确等\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e\u003cp\u003e4.查询优化器将解析树转化为查询计划，一般情况下，一条查询可以有很多种执行方式，最终返回相同的结果，优化器就是根据\u003ccode\u003e成本\u003c/code\u003e找到这其中最优的执行计划\u003c/p\u003e\u003c/li\u003e\n\u003cli\u003e\u003cp\u003e5.执行计划调用查询执行引擎，而查询引擎通过一系列API接口查询到数据\u003c/p\u003e\u003c/li\u003e\n\u003cli\u003e\u003cp\u003e6.得到数据之后，在返回给客户端的同时，会将数据存在查询缓存中\u003c/p\u003e\u003c/li\u003e\n\u003c/ul\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 700px; max-height: 635px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 57.940000000000005%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"1096\" data-height=\"635\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-8e1f04724ca6881f.png\" data-original-width=\"1096\" data-original-height=\"635\" data-original-format=\"image/png\" data-original-filesize=\"311938\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003ch2\u003e02  查询缓存\u003c/h2\u003e\n\u003cp\u003e我们先通过\u003ccode\u003eshow variables like '%query_cache%'\u003c/code\u003e来看一下默认的数据库配置，此为本地数据库的配置。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 391px; max-height: 285px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 72.89%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"391\" data-height=\"285\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-42c0d6317f9323e9.png\" data-original-width=\"391\" data-original-height=\"285\" data-original-format=\"image/png\" data-original-filesize=\"87827\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003ch3\u003e2.1  概念\u003c/h3\u003e\n\u003cp\u003ehave_query_cache:当前的MYSQL版本是否支持“查询缓存”功能。\u003c/p\u003e\n\u003cp\u003equery_cache_limit:MySQL能够缓存的最大查询结果，查询结果大于该值时不会被缓存。默认值是1048576(1MB)\u003c/p\u003e\n\u003cp\u003equery_cache_min_res_unit:查询缓存分配的最小块（字节）。默认值是4096（4KB）。当查询进行时，MySQL把查询结果保存在query cache，但是如果保存的结果比较大，超过了query_cache_min_res_unit的值，这时候MySQL将一边检索结果，一边进行保存结果。他保存结果也是按默认大小先分配一块空间，如果不够，又要申请新的空间给他。如果查询结果比较小，默认的query_cache_min_res_unit可能造成大量的内存碎片，如果查询结果比较大，默认的query_cache_min_res_unit又不够，导致一直分配块空间，所以可以根据实际需求，调节query_cache_min_res_unit的大小。\u003c/p\u003e\n\u003cp\u003e\u003ccode\u003e注：如果上面说的内容有点弯弯绕，那举个现实生活中的例子，比如咱现在要给运动员送水，默认的是500ml的瓶子，如果过来的是少年运动员，可能500ml太大了，他们喝不完，造成了浪费，那我们就可以选择300ml的瓶子，如果过来的是成年运动员，可能500ml不够，那他们一瓶喝完了，又开一瓶，直接不渴为止。那么那样开瓶子也要时间，我们就可以选择1000ml的瓶子。\u003c/code\u003e\u003c/p\u003e\n\u003cp\u003equery_cache_size:为缓存查询结果分配的总内存。\u003c/p\u003e\n\u003cp\u003equery_cache_type:默认为on，可以缓存除了以select sql_no_cache开头的所有查询结果。\u003c/p\u003e\n\u003cp\u003equery_cache_wlock_invalidate:如果该表被锁住，是否返回缓存中的数据，默认是关闭的。\u003c/p\u003e\n\u003ch3\u003e2.2  原理\u003c/h3\u003e\n\u003cp\u003eMYSQL的查询缓存实质上是缓存SQL的hash值和该SQL的查询结果，如果运行相同的SQL,服务器直接从缓存中去掉结果，而不再去解析，优化，寻找最低成本的执行计划等一系列操作，大大提升了查询速度。\u003c/p\u003e\n\u003cp\u003e但是万事有利也有弊。\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e第一个弊端就是如果表的数据有一条发生变化，那么缓存好的结果将全部不再有效。这对于频繁更新的表，查询缓存是不适合的。\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003e\u003ccode\u003e比如一张表里面只有两个字段，分别是id和name，数据有一条为1，张三。我使用select * from 表名 where name=“张三”来进行查询，MySQL发现查询缓存中没有此数据，会进行一系列的解析，优化等操作进行数据的查询，查询结束之后将该SQL的hash和查询结果缓存起来，并将查询结果返回给客户端。但是这个时候我有新增了一条数据2，张三。如果我还用相同的SQL来执行，他会根据该SQL的hash值去查询缓存中，那么结果就错了。所以MySQL对于数据有变化的表来说，会直接清空关于该表的所有缓存。这样其实是效率是很差的。\u003c/code\u003e\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e第二个弊端就是缓存机制是通过对SQL的hash，得出的值为key，查询结果为value来存放的，那么就意味着SQL必须完完全全一模一样，否则就命不中缓存。\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003e\u003ccode\u003e我们都知道hash值的规则，就算很小的查询，哈希出来的结果差距是很多的，所以select * from 表名 where name=“张三”和SELECT * FROM 表名 WHERE NAME=“张三”和select * from 表名 where name = “张三”，三个SQL哈希出来的值是不一样的，大小写和空格影响了他们，所以并不能命中缓存，但其实他们搜索结果是完全一样的。\u003c/code\u003e\u003c/p\u003e\n\u003ch3\u003e2.3  生产如何设置MySQL Query Cache\u003c/h3\u003e\n\u003cp\u003e先来看线上参数：\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 352px; max-height: 240px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 68.17999999999999%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"352\" data-height=\"240\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-ab994b6bfd4d1e61.png\" data-original-width=\"352\" data-original-height=\"240\" data-original-format=\"image/png\" data-original-filesize=\"83326\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e我们发现将query_cache_type设置为OFF，其实网上资料和各大云厂商提供的云服务器都是将这个功能关闭的，从上面的原理来看，在一般情况下，\u003ccode\u003e他的弊端大于优点\u003c/code\u003e。\u003c/p\u003e\n\u003ch2\u003e03  索引\u003c/h2\u003e\n\u003ch3\u003e3.1  例子\u003c/h3\u003e\n\u003cp\u003e创建一个名为user的表，其包括id，name，age，sex等字段信息。此外，id为主键聚簇索引，idx_name为非聚簇索引。\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003eCREATE TABLE `user` (\n  `id` varchar(10) NOT NULL DEFAULT '',\n  `name` varchar(10) DEFAULT NULL,\n  `age` int(11) DEFAULT NULL,\n  `sex` varchar(10) DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `idx_name` (`name`) USING BTREE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8;\n\u003c/code\u003e\u003c/pre\u003e\n\u003cp\u003e我们将其设置10条数据，便于下面的索引的理解。\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003eINSERT INTO `user` VALUES ('1', 'andy', '20', '女');\nINSERT INTO `user` VALUES ('10', 'baby', '12', '女');\nINSERT INTO `user` VALUES ('2', 'kat', '12', '女');\nINSERT INTO `user` VALUES ('3', 'lili', '20', '男');\nINSERT INTO `user` VALUES ('4', 'lucy', '22', '女');\nINSERT INTO `user` VALUES ('5', 'bill', '20', '男');\nINSERT INTO `user` VALUES ('6', 'zoe', '20', '男');\nINSERT INTO `user` VALUES ('7', 'hay', '20', '女');\nINSERT INTO `user` VALUES ('8', 'tony', '20', '男');\nINSERT INTO `user` VALUES ('9', 'rose', '21', '男');\n\u003c/code\u003e\u003c/pre\u003e\n\u003ch3\u003e3.2  聚簇索引（主键索引）\u003c/h3\u003e\n\u003cp\u003e先来一张图镇楼，接下来就是看图说话。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 596px; max-height: 427px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 71.64%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"596\" data-height=\"427\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-1c8d30f7eebed5dd.png\" data-original-width=\"596\" data-original-height=\"427\" data-original-format=\"image/png\" data-original-filesize=\"126958\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e他包含两个特点：\u003c/p\u003e\n\u003cp\u003e1.使用记录主键值的大小来进行记录和页的排序。\u003c/p\u003e\n\u003cp\u003e页内的记录是按照主键的大小顺序排成一个单项链表。\u003c/p\u003e\n\u003cp\u003e各个存放用户记录的页也是根据页中用户记录的主键大小顺序排成一个双向链表。\u003c/p\u003e\n\u003cp\u003e2.叶子节点存储的是\u003ccode\u003e完整的用户记录\u003c/code\u003e。\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e注：聚簇索引不需要我们显示的创建，他是由InnoDB存储引擎自动为我们创建的。如果没有主键，其也会默认创建一个。复制代码\n\u003c/code\u003e\u003c/pre\u003e\n\u003ch3\u003e3.3  非聚簇索引（二级索引）\u003c/h3\u003e\n\u003cp\u003e上面的聚簇索引只能在搜索条件是主键时才能发挥作用，因为聚簇索引可以根据主键进行排序的。如果搜索条件是name，在刚才的聚簇索引上，我们可能遍历，挨个找到符合条件的记录，但是，这样真的是太蠢了，MySQL不会这样做的。\u003c/p\u003e\n\u003cp\u003e如果我们想让搜索条件是name的时候，也能使用索引，那可以多创建一个基于name的二叉树。如下图。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 619px; max-height: 407px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 65.75%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"619\" data-height=\"407\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-c5414349d1c19c5c.png\" data-original-width=\"619\" data-original-height=\"407\" data-original-format=\"image/png\" data-original-filesize=\"81211\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e他与聚簇索引的不同：\u003c/p\u003e\n\u003cp\u003e1.叶子节点内部使用name字段排序，叶子节点之间也是使用name字段排序。\u003c/p\u003e\n\u003cp\u003e2.叶子节点不再是完整的数据记录，而是name和主键值。\u003c/p\u003e\n\u003cp\u003e\u003ccode\u003e为什么不再是完整信息？\u003c/code\u003e\u003c/p\u003e\n\u003cp\u003eMySQL只让聚簇索引的叶子节点存放完整的记录信息，因为如果有好几个非聚簇索引，他们的叶子节点也存放完整的记录绩效，那就不浪费空间啦。\u003c/p\u003e\n\u003cp\u003e\u003ccode\u003e如果我搜索条件是基于name，需要查询所有字段的信息，那查询过程是啥？\u003c/code\u003e\u003c/p\u003e\n\u003cp\u003e1.根据查询条件，采用name的非聚簇索引，先定位到该非聚簇索引某些记录行。\u003c/p\u003e\n\u003cp\u003e2.根据记录行找到相应的id，再根据id到聚簇索引中找到相关记录。这个过程叫做\u003ccode\u003e回``表\u003c/code\u003e。\u003c/p\u003e\n\u003ch3\u003e3.4  联合索引\u003c/h3\u003e\n\u003cp\u003e图就不画了，简单来说，如果name和age组成一个联合索引，那么先按name排序，如果name一样，就按age排序。\u003c/p\u003e\n\u003ch3\u003e3.5  一些原则\u003c/h3\u003e\n\u003cp\u003e1.最左前缀原则。一个联合索引（a,b,c）,如果有一个查询条件有a，有b，那么他则走索引，如果有一个查询条件没有a，那么他则不走索引。\u003c/p\u003e\n\u003cp\u003e2.使用唯一索引。具有多个重复值的列，其索引效果最差。例如，存放姓名的列具有不同值，很容易区分每行。而用来记录性别的列，只含有“男”，“女”，不管搜索哪个值，都会得出大约一半的行，这样的索引对性能的提升不够高。\u003c/p\u003e\n\u003cp\u003e3.不要过度索引。每个额外的索引都要占用额外的磁盘空间，并降低写操作的性能。在修改表的内容时，索引必须进行更新，有时可能需要重构，因此，索引越多，所花的时间越长。\u003c/p\u003e\n\u003cp\u003e4、索引列不能参与计算，保持列“干净”，比如from_unixtime(create_time) = ’2014-05-29’就不能使用到索引，原因很简单，b+树中存的都是数据表中的字段值，但进行检索时，需要把所有元素都应用函数才能比较，显然成本太大。所以语句应该写成create_time = unix_timestamp(’2014-05-29’);\u003c/p\u003e\n\u003cp\u003e5.一定要设置一个主键。前面聚簇索引说到如果不指定主键，InnoDB会自动为其指定主键，这个我们是看不见的。反正都要生成一个主键的，还不如我们设置，以后在某些搜索条件时还能用到主键的聚簇索引。\u003c/p\u003e\n\u003cp\u003e6.主键推荐用自增id，而不是uuid。上面的聚簇索引说到每页数据都是排序的，并且页之间也是排序的，如果是uuid，那么其肯定是随机的，其可能从中间插入，导致页的分裂，产生很多表碎片。如果是自增的，那么其有从小到大自增的，有顺序，那么在插入的时候就添加到当前索引的后续位置。当一页写满，就会自动开辟一个新的页。\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e注：如果自增id用完了，那将字段类型改为bigint，就算每秒1万条数据，跑100年，也没达到bigint的最大值。复制代码\n\u003c/code\u003e\u003c/pre\u003e\n\u003ch3\u003e3.6  万年面试题（为什么索引用B+树）\u003c/h3\u003e\n\u003cp\u003e1、 B+树的磁盘读写代价更低：B+树的内部节点并没有指向关键字具体信息的指针，因此其内部节点相对B树更小，如果把所有同一内部节点的关键字存放在同一盘块中，那么盘块所能容纳的关键字数量也越多，一次性读入内存的需要查找的关键字也就越多，相对\u003ccode\u003eIO读写次数就降低\u003c/code\u003e了。\u003c/p\u003e\n\u003cp\u003e2、由于B+树的数据都存储在叶子结点中，分支结点均为索引，方便扫库，只需要扫一遍叶子结点即可，但是B树因为其分支结点同样存储着数据，我们要找到具体的数据，需要进行一次中序遍历按序来扫，所以B+树更加适合在\u003ccode\u003e区间查询\u003c/code\u003e的情况，所以通常B+树用于数据库索引。\u003c/p\u003e\n\u003ch2\u003e04  优化器\u003c/h2\u003e\n\u003cp\u003e在开篇的图里面，我们知道了SQL语句从客户端经由网络协议到查询缓存，如果没有命中缓存，再经过解析工作，得到准确的SQL，现在就来到了我们这模块说的优化器。\u003c/p\u003e\n\u003cp\u003e首先，我们知道每一条SQL都有不同的执行方法，要不通过索引，要不通过全表扫描的方式。\u003c/p\u003e\n\u003cp\u003e那么问题就来了，MySQL是如何选择时间最短，占用内存最小的执行方法呢？\u003c/p\u003e\n\u003ch3\u003e4.1  什么是成本？\u003c/h3\u003e\n\u003cp\u003e1.I/O成本。数据存储在硬盘上，我们想要进行某个操作需要将其加载到内存中，这个过程的时间被称为I/O成本。默认是1。\u003c/p\u003e\n\u003cp\u003e2.CPU成本。在内存对结果集进行排序的时间被称为CPU成本。默认是0.2。\u003c/p\u003e\n\u003ch3\u003e4.2  单表查询的成本\u003c/h3\u003e\n\u003cp\u003e先来建一个用户表dev_user，里面包括主键id，用户名username，密码password，外键user_info_id，状态status，外键main_station_id，是否外网访问visit，这七个字段。索引有两个，一个是主键的聚簇索引，另一个是显式添加的以username为字段的唯一索引uname_unique。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 700px; max-height: 80px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 10.879999999999999%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"735\" data-height=\"80\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-91e6da824076e362.png\" data-original-width=\"735\" data-original-height=\"80\" data-original-format=\"image/png\" data-original-filesize=\"39454\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e如果搜索条件是select * from dev_user where username='XXX'，那么MySQL是如何选择相关索引呢？\u003c/p\u003e\n\u003cp\u003e1.使用所有可能用到的索引\u003c/p\u003e\n\u003cp\u003e我们可以看到搜索条件username，所以可能走uname_unique索引。也可以做聚簇索引，也就是全表扫描。\u003c/p\u003e\n\u003cp\u003e2.计算全表扫描代价\u003c/p\u003e\n\u003cp\u003e我们通过\u003ccode\u003eshow table status like ‘dev_user’\u003c/code\u003e命令知道\u003ccode\u003erows\u003c/code\u003e和\u003ccode\u003edata_length\u003c/code\u003e字段，如下图。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 700px; max-height: 155px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 12.11%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"1280\" data-height=\"155\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-ad55c097cb502d93.png\" data-original-width=\"1280\" data-original-height=\"155\" data-original-format=\"image/png\" data-original-filesize=\"111939\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003erows：表示表中的记录条数，但是这个数据不准确，是个估计值。\u003c/p\u003e\n\u003cp\u003edata_length:表示表占用的存储空间字节数。\u003c/p\u003e\n\u003cp\u003e\u003ccode\u003edata_length=聚簇索引的页面数量X每个页面的大小\u003c/code\u003e\u003c/p\u003e\n\u003cp\u003e反推出页面数量=1589248÷16÷1024=97\u003c/p\u003e\n\u003cp\u003eI/O成本：97X1=97\u003c/p\u003e\n\u003cp\u003eCPU成本：6141X0.2=1228\u003c/p\u003e\n\u003cp\u003e总成本：97+1228=1325\u003c/p\u003e\n\u003cp\u003e3.计算使用不同索引执行查询的代价\u003c/p\u003e\n\u003cp\u003e因为要查询出满足条件的所有字段信息，所以要考虑回表成本。\u003c/p\u003e\n\u003cp\u003eI/O成本=1+1X1=2(范围区间的数量+预计二级记录索引条数)\u003c/p\u003e\n\u003cp\u003eCPU成本=1X0.2+1X0.2=0.4(读取二级索引的成本+回表聚簇索引的成本)\u003c/p\u003e\n\u003cp\u003e总成本=I/O成本+CPU成本=2.4\u003c/p\u003e\n\u003cp\u003e4.对比各种执行方案的代价，找出成本最低的那个\u003c/p\u003e\n\u003cp\u003e上面两个数字一对比，成本是采用uname_unique索引成本最低。\u003c/p\u003e\n\u003ch3\u003e4.3  多表查询的成本\u003c/h3\u003e\n\u003cp\u003e对于两表连接查询来说，他的查询成本由下面两个部分构成：\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e单次查询驱动表的成本\u003c/li\u003e\n\u003cli\u003e多次查询被驱动表的成本（具体查询多次取决于对驱动表查询的结果集有多少个记录）\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch3\u003e4.4  index dive\u003c/h3\u003e\n\u003cp\u003e如果前面的搜索条件不是等值，而是区间，如\u003ccode\u003eselect * from dev_user where username\u0026gt;'admin' and username\u0026lt;'test'\u003c/code\u003e这个时候我们是无法看出需要回表的数量。\u003c/p\u003e\n\u003cp\u003e步骤1：先根据username\u0026gt;'admin'这个条件找到第一条记录，称为\u003ccode\u003e区间最左记录\u003c/code\u003e。\u003c/p\u003e\n\u003cp\u003e步骤2：再根据username\u0026lt;'test'这个条件找到最后一条记录，称为\u003ccode\u003e区间最右记录\u003c/code\u003e。\u003c/p\u003e\n\u003cp\u003e步骤3：如果区间最左记录和区间最右记录相差不是很远，可以准确统计出需要回表的数量。如果相差很远，就先计算10页有多少条记录，再乘以页面数量，最终模糊统计出来。\u003c/p\u003e\n\u003ch2\u003e05  Explain\u003c/h2\u003e\n\u003ch3\u003e5.1  产品来索命\u003c/h3\u003e\n\u003cp\u003e产品：为什么这个页面出来这么慢？\u003c/p\u003e\n\u003cp\u003e开发：因为你查的数据多呗，他就是这么慢\u003c/p\u003e\n\u003cp\u003e产品：我不管，我要这个页面快点，你这样，客户怎么用啊\u003c/p\u003e\n\u003cp\u003e开发：。。。。。。。你行你来\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 500px; max-height: 449px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 89.8%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"500\" data-height=\"449\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-7f6e414bed8e9694.png\" data-original-width=\"500\" data-original-height=\"449\" data-original-format=\"image/png\" data-original-filesize=\"306785\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e哈哈哈哈，不瞎BB啦，如果有些SQL贼慢，我们需要知道他有没有走索引，走了哪个索引，这个时候我就需要通过explain关键字来深入了解MySQL内部是如何执行的。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 700px; max-height: 175px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 22.18%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"789\" data-height=\"175\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-12dc862c5053cd89.png\" data-original-width=\"789\" data-original-height=\"175\" data-original-format=\"image/png\" data-original-filesize=\"84358\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003ch3\u003e5.2  id\u003c/h3\u003e\n\u003cp\u003e一般来说一个select一个唯一id，如果是子查询，就有两个select，id是不一样的，但是凡事有例外，有些子查询的，他们id是一样的。\u003c/p\u003e\n\u003cbr\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 700px; max-height: 153px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 20.51%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"746\" data-height=\"153\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-65d384dbb5af5c09.png\" data-original-width=\"746\" data-original-height=\"153\" data-original-format=\"image/png\" data-original-filesize=\"93904\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e这是为什么呢？\u003c/p\u003e\n\u003cp\u003e那是因为MySQL在进行优化的时候已经将子查询改成了连接查询，而连接查询的id是一样的。\u003c/p\u003e\n\u003ch3\u003e5.3  select_type\u003c/h3\u003e\n\u003cul\u003e\n\u003cli\u003esimple：不包括union和子查询的查询都算simple类型。\u003c/li\u003e\n\u003cli\u003eprimary：包括union，union all，其中最左边的查询即为primary。\u003c/li\u003e\n\u003cli\u003eunion：包括union，union all，除了最左边的查询，其他的查询类型都为union。\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch3\u003e5.4 table\u003c/h3\u003e\n\u003cp\u003e显示这一行是关于哪张表的。\u003c/p\u003e\n\u003ch3\u003e5.5 type：访问方法\u003c/h3\u003e\n\u003cul\u003e\n\u003cli\u003eref：普通二级索引与常量进行等值匹配\u003c/li\u003e\n\u003cli\u003eref_or_null：普通二级索引与常量进行等值匹配，该索引可能是null\u003c/li\u003e\n\u003cli\u003econst：主键或唯一二级索引列与常量进行等值匹配\u003c/li\u003e\n\u003cli\u003erange：范围区间的查询\u003c/li\u003e\n\u003cli\u003eall：全表扫描\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch3\u003e5.6 possible_keys\u003c/h3\u003e\n\u003cp\u003e对某表进行单表查询时可能用到的索引\u003c/p\u003e\n\u003ch3\u003e5.7 key\u003c/h3\u003e\n\u003cp\u003e经过查询优化器计算不同索引的成本，最终选择成本最低的索引\u003c/p\u003e\n\u003ch3\u003e5.8 rows\u003c/h3\u003e\n\u003cul\u003e\n\u003cli\u003e如果使用全表扫描，那么rows就代表需要扫描的行数\u003c/li\u003e\n\u003cli\u003e如果使用索引，那么rows就代表预计扫描的行数\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch3\u003e5.9 filtered\u003c/h3\u003e\n\u003cul\u003e\n\u003cli\u003e如果全表扫描，那么filtered就代表满足搜索条件的记录的满分比\u003c/li\u003e\n\u003cli\u003e如果是索引，那么filtered就代表除去索引对应的搜索，其他搜索条件的百分比\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e06 redo日志（物理日志）\u003c/h2\u003e\n\u003cp\u003eInnoDB存储引擎是以页为单位来管理存储空间的，我们进行的增删改查操作都是将页的数据加载到内存中，然后进行操作，再将数据刷回到硬盘上。\u003c/p\u003e\n\u003cp\u003e那么问题就来了，如果我要给张三转账100块钱，事务已经提交了，这个时候InnoDB把数据加载到内存中，这个时候还没来得及刷入硬盘，突然停电了，数据库崩了。重启之后，发现我的钱没有转成功，这不是尴尬了吗？\u003c/p\u003e\n\u003cp\u003e解决方法很明显，我们在硬盘加载到内存之后，进行一系列操作，一顿操作猛如虎，还未刷新到硬盘之前，先记录下，在XXX位置我的记录中金额减100，在XXX位置张三的记录中金额加100，然后再进行增删改查操作，最后刷入硬盘。如果未刷入硬盘，在重启之后，先加载之前的记录，那么数据就回来了。\u003c/p\u003e\n\u003cp\u003e这个记录就叫做重做日志，即redo日志。他的目的是想让已经提交的事务对数据的修改是永久的，就算他重启，数据也能恢复出来。\u003c/p\u003e\n\u003ch3\u003e6.1  log buffer（日志缓冲区）\u003c/h3\u003e\n\u003cp\u003e为了解决磁盘速度过慢的问题，redo日志不能直接写入磁盘，咱先整一大片连续的内存空间给他放数据。这一大片内存就叫做日志缓冲区，即log buffer。到了合适的时候，再刷入硬盘。至于什么时候是合适的，这个下一章节说。\u003c/p\u003e\n\u003cp\u003e我们可以通过\u003ccode\u003eshow VARIABLES like 'innodb_log_buffer_size'\u003c/code\u003e命令来查看当前的日志缓存大小，下图为线上的大小。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 407px; max-height: 135px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 33.17%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"407\" data-height=\"135\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-61ec519d9b02b091.png\" data-original-width=\"407\" data-original-height=\"135\" data-original-format=\"image/png\" data-original-filesize=\"44556\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003ch3\u003e6.2 redo日志刷盘时机\u003c/h3\u003e\n\u003cp\u003e由于redo日志一直都是增长的，且内存空间有限，数据也不能一直待在缓存中， 我们需要将其刷新至硬盘上。\u003c/p\u003e\n\u003cp\u003e那什么时候刷新到硬盘呢？\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003elog buffer空间不足。上面有指定缓冲区的内存大小，MySQL认为日志量已经占了 总容量的一半左右，就需要将这些日志刷新到磁盘上。\u003c/li\u003e\n\u003cli\u003e事务提交时。我们使用redo日志的目的就是将他未刷新到磁盘的记录保存起来，防止 丢失，如果数据提交了，我们是可以不把数据提交到磁盘的，但为了保证持久性，必须 把修改这些页面的redo日志刷新到磁盘。\u003c/li\u003e\n\u003cli\u003e后台线程不同的刷新 后台有一个线程，大概每秒都会将log buffer里面的redo日志刷新到硬盘上。\u003c/li\u003e\n\u003cli\u003echeckpoint 下下小节讲\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch3\u003e6.3 redo日志文件组\u003c/h3\u003e\n\u003cp\u003e我们可以通过\u003ccode\u003eshow variables like 'datadir'\u003c/code\u003e命令找到相关目录，底下有两个文件， 分别是ib_logfile0和ib_logfile1,如下图所示。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 483px; max-height: 153px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 31.680000000000003%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"483\" data-height=\"153\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-31dd34338d350428.png\" data-original-width=\"483\" data-original-height=\"153\" data-original-format=\"image/png\" data-original-filesize=\"44921\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 623px; max-height: 431px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 69.17999999999999%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"623\" data-height=\"431\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-8116696aedd60988.png\" data-original-width=\"623\" data-original-height=\"431\" data-original-format=\"image/png\" data-original-filesize=\"260850\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage.png\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e我们将缓冲区log buffer里面的redo日志刷新到这个两个文件里面，他们写入的方式 是循环写入的，先写ib_logfile0,再写ib_logfile1,等ib_logfile1写满了，再写ib_logfile0。 那这样就会存在一个问题，如果ib_logfile1写满了，再写ib_logfile0，之前ib_logfile0的内容 不就被覆盖而丢失了吗？ 这就是checkpoint的工作啦。\u003c/p\u003e\n\u003ch3\u003e6.4  checkpoint\u003c/h3\u003e\n\u003cp\u003eredo日志是为了系统崩溃后恢复脏页用的，如果这个脏页可以被刷新到磁盘上，那么 他就可以功成身退，被覆盖也就没事啦。\u003c/p\u003e\n\u003cp\u003e冲突补习\u003c/p\u003e\n\u003cp\u003e从系统运行开始，就不断的修改页面，会不断的生成redo日志。redo日志是不断 递增的，MySQL为其取了一个名字日志序列号Log Sequence Number，简称lsn。 他的初始化的值为8704，用来记录当前一共生成了多少redo日志。\u003c/p\u003e\n\u003cp\u003eredo日志是先写入log buffer，之后才会被刷新到磁盘的redo日志文件。MySQL为其 取了一个名字flush_to_disk_lsn。用来说明缓存区中有多少的脏页数据被刷新到磁盘上啦。 他的初始值和lsn一样，后面的差距就有了。\u003c/p\u003e\n\u003cp\u003e做一次checkpoint分为两步\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e计算当前系统可以被覆盖的redo日志对应的lsn最大值是多少。redo日志可以被覆盖， 意味着他对应的脏页被刷新到磁盘上，只要我们计算出当前系统中最早被修改的oldest_modification, 只要系统中lsn小于该节点的oldest_modification值磁盘的redo日志都是可以被覆盖的。\u003c/li\u003e\n\u003cli\u003e将lsn过程中的一些数据统计。\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e07 undo日志（这部分不是很明白，所以大概说了）\u003c/h2\u003e\n\u003ch3\u003e7.1 基本概念\u003c/h3\u003e\n\u003cp\u003eundo log有两个作用：提供回滚和多个行版本控制(\u003ccode\u003eMVCC\u003c/code\u003e)。\u003c/p\u003e\n\u003cp\u003eundo log和redo log记录物理日志不一样，它是逻辑日志。可以认为当delete一条记录时，undo log中会记录一条对应的insert记录，反之亦然，当update一条记录时，它记录一条对应相反的update记录。\u003c/p\u003e\n\u003cp\u003e举个例子:\u003c/p\u003e\n\u003cp\u003einsert into a(id) values(1);(redo)\u003cbr\u003e\n这条记录是需要回滚的。\u003cbr\u003e\n回滚的语句是delete from a where id = 1;(undo)\u003c/p\u003e\n\u003cp\u003e试想想看。如果没有做insert into a(id) values(1);(redo)\u003cbr\u003e\n那么delete from a where id = 1;(undo)这句话就没有意义了。\u003c/p\u003e\n\u003cp\u003e现在看下正确的恢复:\u003cbr\u003e\n先insert into a(id) values(1);(redo)\u003cbr\u003e\n然后delete from a where id = 1;(undo)\u003cbr\u003e\n系统就回到了原先的状态，没有这条记录了\u003c/p\u003e\n\u003ch3\u003e7.2  存储方式\u003c/h3\u003e\n\u003cp\u003e是存在段之中。\u003c/p\u003e\n\u003ch2\u003e08  事务\u003c/h2\u003e\n\u003ch3\u003e8.1  引言\u003c/h3\u003e\n\u003cp\u003e事务中有一个隔离性特征，理论上在某个事务对某个数据进行访问时，其他事务应该排序，当该事务提交之后，其他事务才能继续访问这个数据。\u003c/p\u003e\n\u003cp\u003e但是这样子对性能影响太大，我们既想保持事务的隔离性，又想让服务器在出来多个事务时性能尽量高些，所以只能舍弃一部分隔离性而去性能。\u003c/p\u003e\n\u003ch3\u003e8.2  事务并发执行的问题\u003c/h3\u003e\n\u003cul\u003e\n\u003cli\u003e脏写（这个太严重了，任何隔离级别都不允许发生）\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003esessionA：修改了一条数据，回滚掉\u003c/p\u003e\n\u003cp\u003esessionB：修改了同一条数据，提交掉\u003c/p\u003e\n\u003cp\u003e对于sessionB来说，明明数据更新了也提交了事务，不能说自己啥都没干\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e脏读：一个事务读到另一个未提交事务修改的数据\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003esession A：查询，得到某条数据\u003c/p\u003e\n\u003cp\u003esession B：修改某条数据，但是最后回滚掉啦\u003c/p\u003e\n\u003cp\u003esession A：在sessionB修改某条数据之后，在回滚之前，读取了该条记录\u003c/p\u003e\n\u003cp\u003e对于session A来说，读到了session回滚之前的脏数据\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e不可重复读：前后多次读取，同一个数据内容不一样\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003esession A：查询某条记录\u003cbr\u003e\nsession B : 修改该条记录，并提交事务\u003cbr\u003e\nsession A : 再次查询该条记录，发现前后查询不一致\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e幻读：前后多次读取，数据总量不一致\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003esession A：查询表内所有记录\u003cbr\u003e\nsession B : 新增一条记录，并查询表内所有记录\u003cbr\u003e\nsession A : 再次查询该条记录，发现前后查询不一致\u003c/p\u003e\n\u003ch3\u003e8.3  四种隔离级别\u003c/h3\u003e\n\u003cp\u003e数据库都有的四种隔离级别，MySQL事务默认的隔离级别是可重复读，而且MySQL可以解决了幻读的问题。\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e未提交读：脏读，不可重复读，幻读都有可能发生\u003c/li\u003e\n\u003cli\u003e已提交读：不可重复读，幻读可能发生\u003c/li\u003e\n\u003cli\u003e可重复读：幻读可能发生\u003c/li\u003e\n\u003cli\u003e可串行化：都不可能发生\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003e但凡事没有百分百，emmmm，其实MySQL并没有百分之百解决幻读的问题。\u003c/p\u003e\n\u003cdiv class=\"image-package\"\u003e\n\u003cdiv class=\"image-container\" style=\"max-width: 140px; max-height: 150px;\"\u003e\n\u003cdiv class=\"image-container-fill\" style=\"padding-bottom: 107.13999999999999%;\"\u003e\u003c/div\u003e\n\u003cdiv class=\"image-view\" data-width=\"140\" data-height=\"150\"\u003e\u003cimg data-original-src=\"//upload-images.jianshu.io/upload_images/18375227-4ca72034844a348f\" data-original-width=\"140\" data-original-height=\"150\" data-original-format=\"image/gif\" data-original-filesize=\"140151\"\u003e\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv class=\"image-caption\"\u003eimage\u003c/div\u003e\n\u003c/div\u003e\n\u003cp\u003e举个例子：\u003c/p\u003e\n\u003cp\u003esession A：查询某条不存在的记录。\u003c/p\u003e\n\u003cp\u003esession B：新增该条不存在的记录，并提交事务。\u003c/p\u003e\n\u003cp\u003esession A：再次查询该条不存在的记录，是查询不出来的，但是如果我尝试修改该条记录，并提交，其实他是可以修改成功的。\u003c/p\u003e\n\u003ch3\u003e8.4  MVCC\u003c/h3\u003e\n\u003cp\u003e版本链：对于该记录的每次更新，都会将值放在一条undo日志中，算是该记录的一个旧版本，随着更新次数的增多，所有版本都会被roll_pointer属性连接成一个链表，即为版本链。\u003c/p\u003e\n\u003cp\u003ereadview：\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003e未提交读：因为可以读到未提交事务修改的记录，所以可以直接读取记录的最新版本就行\u003c/li\u003e\n\u003cli\u003e已提交读：每次读取之前都生成一个readview\u003c/li\u003e\n\u003cli\u003e可重复读：只有在第一次读取的时候才生成readview\u003c/li\u003e\n\u003cli\u003e可串行化：InnoDB涉及了加锁的方式来访问记录\u003c/li\u003e\n\u003c/ul\u003e\n\u003cblockquote\u003e\n\u003cp\u003e作者：学习Java的小姐姐\u003cbr\u003e\n原文链接：\u003ca href=\"https://links.jianshu.com/go?to=https%3A%2F%2Fjuejin.im%2Fpost%2F5dfc846051882512327a63b6\" target=\"_blank\"\u003ehttps://juejin.im/post/5dfc846051882512327a63b6\u003c/a\u003e\u003c/p\u003e\n\u003c/blockquote\u003e\n","voted_down":false,"rewardable":true,"show_paid_comment_tips":false,"share_image_url":"https://upload-images.jianshu.io/upload_images/18375227-8e1f04724ca6881f.png","slug":"2530d1185778","user":{"liked_by_user":false,"following_count":9407,"gender":0,"slug":"5872afeb0215","intro":"现在加群号：578486082 即可获取Java工程化、高性能及分布式、高性能、高架构。性能调...","likes_count":3825,"nickname":"java菲","badges":[],"total_fp_amount":"437666058468173681019","wordage":710906,"avatar":"https://upload.jianshu.io/users/upload_avatars/18375227/eb7d73d5-2b66-4fde-af00-2d3b2076ce8e.png","id":18375227,"liked_user":false},"likes_count":112,"paid_type":"free","show_ads":true,"paid_content_accessible":false,"total_fp_amount":"15304000000000000000","trial_open":false,"reprintable":true,"bookmarked":false,"wordage":7178,"featured_comments_count":0,"downvotes_count":0,"wangxin_trial_open":false,"commentable":true,"total_rewards_count":0,"id":58651933,"notebook":{"name":""},"description":"微服务架构之春招总结：SpringCloud、Docker、Dubbo与SpringBoot 欢迎大家关注我的专栏：【Java架构技术进阶】，里面有大量batj面试题集锦，还...","first_shared_at":1578386913,"views_count":5141,"notebook_id":37930225},"baseList":{"likeList":[],"rewardList":[]},"status":"success","statusCode":0},"user":{"isLogin":false,"userInfo":{}},"comments":{"list":[],"featuredList":[]}},"initialProps":{"pageProps":{"query":{"slug":"2530d1185778"}},"localeData":{"common":{"jianshu":"简书","diamond":"简书钻","totalAssets":"总资产{num}","diamondValue":" (约{num}元)","login":"登录","logout":"注销","register":"注册","on":"开","off":"关","follow":"关注","followBook":"关注连载","following":"已关注","cancelFollow":"取消关注","publish":"发布","wordage":"字数","audio":"音频","read":"阅读","reward":"赞赏","zan":"赞","comment":"评论","expand":"展开","prevPage":"上一页","nextPage":"下一页","floor":"楼","confirm":"确定","delete":"删除","report":"举报","fontSong":"宋体","fontBlack":"黑体","chs":"简体","cht":"繁体","jianChat":"简信","postRequest":"投稿请求","likeAndZan":"喜欢和赞","rewardAndPay":"赞赏和付费","home":"我的主页","markedNotes":"收藏的文章","likedNotes":"喜欢的文章","paidThings":"已购内容","wallet":"我的钱包","setting":"设置","feedback":"帮助与反馈","loading":"加载中...","needLogin":"请登录后进行操作","trialing":"文章正在审核中...","reprintTip":"禁止转载，如需转载请通过简信或评论联系作者。"},"error":{"rewardSelf":"无法打赏自己的文章哟~"},"message":{"paidNoteTip":"付费购买后才可以参与评论哦","CommentDisableTip":"作者关闭了评论功能","contentCanNotEmptyTip":"回复内容不能为空","addComment":"评论发布成功","deleteComment":"评论删除成功","likeComment":"评论点赞成功","setReadMode":"阅读模式设置成功","setFontType":"字体设置成功","setLocale":"显示语言设置成功","follow":"关注成功","cancelFollow":"取消关注成功","copySuccess":"复制代码成功"},"header":{"homePage":"首页","download":"下载APP","discover":"发现","message":"消息","reward":"赞赏支持","editNote":"编辑文章","writeNote":"写文章"},"note":{},"noteMeta":{"lastModified":"最后编辑于 ","wordage":"字数 {num}","viewsCount":"阅读 {num}"},"divider":{"selfText":"以下内容为付费内容，定价 ¥{price}","paidText":"已付费，可查看以下内容","notPaidText":"还有 {percent} 的精彩内容","modify":"点击修改"},"paidPanel":{"buyNote":"支付 ¥{price} 继续阅读","buyBook":"立即拿下 ¥{price}","freeTitle":"该作品为付费连载","freeText":"购买即可永久获取连载内的所有内容，包括将来更新的内容","paidTitle":"还没看够？拿下整部连载！","paidText":"永久获得连载内的所有内容, 包括将来更新的内容"},"book":{"last":"已是最后","lookCatalog":"查看连载目录","header":"文章来自以下连载"},"action":{"like":"{num}人点赞","collection":"收入专题","report":"举报文章"},"comment":{"allComments":"全部评论","featuredComments":"精彩评论","closed":"评论已关闭","close":"关闭评论","open":"打开评论","desc":"按时间倒序","asc":"按时间正序","disableText1":"用户已关闭评论，","disableText2":"与Ta简信交流","placeholder":"写下你的评论...","publish":"发表","create":" 添加新评论","reply":" 回复","restComments":"还有{num}条评论，","expandImage":"展开剩余{num}张图","deleteText":"确定要删除评论么？"},"collection":{"title":"被以下专题收入，发现更多相似内容","putToMyCollection":"收入我的专题"},"seoList":{"title":"推荐阅读","more":"更多精彩内容"},"sideList":{"title":"推荐阅读"},"wxShareModal":{"desc":"打开微信“扫一扫”，打开网页后点击屏幕右上角分享按钮"},"bookChapterModal":{"try":"试读","toggle":"切换顺序"},"collectionModal":{"title":"收入到我管理的专题","search":"搜索我管理的专题","newCollection":"新建专题","create":"创建","nothingFound":"未找到相关专题","loadMore":"展开查看更多"},"contributeModal":{"search":"搜索专题投稿","newCollection":"新建专题","addNewOne":"去新建一个","nothingFound":"未找到相关专题","loadMore":"展开查看更多","managed":"我管理的专题","recommend":"推荐专题"},"QRCodeShow":{"payTitle":"微信扫码支付","payText":"支付金额"},"rewardModal":{"title":"给作者送糖","custom":"自定义","placeholder":"给Ta留言...","choose":"选择支付方式","balance":"简书余额","tooltip":"网站该功能暂时下线，如需使用，请到简书App操作","confirm":"确认支付","success":"赞赏成功"},"payModal":{"payBook":"购买连载","payNote":"购买文章","promotion":"优惠券","promotionFetching":"优惠券获取中...","noPromotion":"无可用优惠券","promotionNum":"{num}张可用","noUsePromotion":"不使用优惠券","validPromotion":"可用优惠券","invalidPromotion":"不可用优惠券","total":"支付总额","tip1":"· 你将购买的商品为虚拟内容服务，购买后不支持退订、转让、退换，请斟酌确认。","tip2":"· 购买后可在“已购内容”中查看和使用。","success":"购买成功"},"reportModal":{"ad":"广告及垃圾信息","plagiarism":"抄袭或未授权转载","placeholder":"写下举报的详情情况（选填）","success":"举报成功"}},"currentLocale":"zh-CN","asPath":"/p/2530d1185778"}},"page":"/p/[slug]","query":{"slug":"2530d1185778"},"buildId":"QiPwfDmytgqS_hVmIsbVI","assetPrefix":"https://cdn2.jianshu.io/shakespeare"}</script><script nomodule="" src="https://cdn2.jianshu.io/shakespeare/_next/static/runtime/polyfills-83c9f0eea3aa0edfd89e.js"></script><script async="" data-next-page="/p/[slug]" src="https://cdn2.jianshu.io/shakespeare/_next/static/QiPwfDmytgqS_hVmIsbVI/pages/p/%5Bslug%5D.js"></script><script async="" data-next-page="/_app" src="https://cdn2.jianshu.io/shakespeare/_next/static/QiPwfDmytgqS_hVmIsbVI/pages/_app.js"></script><script src="https://cdn2.jianshu.io/shakespeare/_next/static/runtime/webpack-ad03007e443a25fa4d15.js" async=""></script><script src="https://cdn2.jianshu.io/shakespeare/_next/static/chunks/commons.6f517ba4cf1108d0202d.js" async=""></script><script src="https://cdn2.jianshu.io/shakespeare/_next/static/chunks/styles.4eb5917714db060a5a06.js" async=""></script><script src="https://cdn2.jianshu.io/shakespeare/_next/static/runtime/main-7d5f5d63b1c080a846ad.js" async=""></script></body></html>
+
+
+前言
+
+ 
+
+说起MySQL的查询优化，相信大家收藏了一堆奇技淫巧：不能使用SELECT *、不使用NULL字段、合理创建索引、为字段选择合适的数据类型..... 你是否真的理解这些优化技巧？是否理解其背后的工作原理？在实际场景下性能真有提升吗？我想未必。因而理解这些优化建议背后的原理就尤为重要，希望本文能让你重新审视这些优化建议，并在实际业务场景下合理的运用。
+
+ 
+
+MySQL逻辑架构
+
+ 
+
+如果能在头脑中构建一幅MySQL各组件之间如何协同工作的架构图，有助于深入理解MySQL服务器。下图展示了MySQL的逻辑架构图。
+
+ ![](0.png)
+
+
+
+MySQL逻辑架构，来自：高性能MySQL
+
+ 
+
+MySQL逻辑架构整体分为三层，最上层为客户端层，并非MySQL所独有，诸如：连接处理、授权认证、安全等功能均在这一层处理。
+
+ 
+
+MySQL大多数核心服务均在中间这一层，包括查询解析、分析、优化、缓存、内置函数(比如：时间、数学、加密等函数)。所有的跨存储引擎的功能也在这一层实现：存储过程、触发器、视图等。
+
+ 
+
+最下层为存储引擎，其负责MySQL中的数据存储和提取。和Linux下的文件系统类似，每种存储引擎都有其优势和劣势。中间的服务层通过API与存储引擎通信，这些API接口屏蔽了不同存储引擎间的差异。
+
+ 
+ ![](1.jpg)
+
+MySQL查询过程
+
+ 
+
+我们总是希望MySQL能够获得更高的查询性能，最好的办法是弄清楚MySQL是如何优化和执行查询的。一旦理解了这一点，就会发现：很多的查询优化工作实际上就是遵循一些原则让MySQL的优化器能够按照预想的合理方式运行而已。
+
+ 
+
+当向MySQL发送一个请求的时候，MySQL到底做了些什么呢？
+
+ 
+
+
+
+MySQL查询过程
+
+ 
+
+客户端/服务端通信协议
+
+ 
+
+MySQL客户端/服务端通信协议是“半双工”的：在任一时刻，要么是服务器向客户端发送数据，要么是客户端向服务器发送数据，这两个动作不能同时发生。一旦一端开始发送消息，另一端要接收完整个消息才能响应它，所以我们无法也无须将一个消息切成小块独立发送，也没有办法进行流量控制。
+
+ 
+
+客户端用一个单独的数据包将查询请求发送给服务器，所以当查询语句很长的时候，需要设置max_allowed_packet参数。但是需要注意的是，如果查询实在是太大，服务端会拒绝接收更多数据并抛出异常。
+
+ 
+
+与之相反的是，服务器响应给用户的数据通常会很多，由多个数据包组成。但是当服务器响应客户端请求时，客户端必须完整的接收整个返回结果，而不能简单的只取前面几条结果，然后让服务器停止发送。因而在实际开发中，尽量保持查询简单且只返回必需的数据，减小通信间数据包的大小和数量是一个非常好的习惯，这也是查询中尽量避免使用SELECT *以及加上LIMIT限制的原因之一。
+
+ 
+
+查询缓存
+
+ 
+
+在解析一个查询语句前，如果查询缓存是打开的，那么MySQL会检查这个查询语句是否命中查询缓存中的数据。如果当前查询恰好命中查询缓存，在检查一次用户权限后直接返回缓存中的结果。这种情况下，查询不会被解析，也不会生成执行计划，更不会执行。
+
+ 
+
+MySQL将缓存存放在一个引用表（不要理解成table，可以认为是类似于HashMap的数据结构），通过一个哈希值索引，这个哈希值通过查询本身、当前要查询的数据库、客户端协议版本号等一些可能影响结果的信息计算得来。所以两个查询在任何字符上的不同（例如：空格、注释），都会导致缓存不会命中。
+
+ 
+
+如果查询中包含任何用户自定义函数、存储函数、用户变量、临时表、MySQL库中的系统表，其查询结果都不会被缓存。比如函数NOW()或者CURRENT_DATE()会因为不同的查询时间，返回不同的查询结果，再比如包含CURRENT_USER或者CONNECION_ID()的查询语句会因为不同的用户而返回不同的结果，将这样的查询结果缓存起来没有任何的意义。
+
+ 
+
+既然是缓存，就会失效，那查询缓存何时失效呢？MySQL的查询缓存系统会跟踪查询中涉及的每个表，如果这些表（数据或结构）发生变化，那么和这张表相关的所有缓存数据都将失效。正因为如此，在任何的写操作时，MySQL必须将对应表的所有缓存都设置为失效。如果查询缓存非常大或者碎片很多，这个操作就可能带来很大的系统消耗，甚至导致系统僵死一会儿。而且查询缓存对系统的额外消耗也不仅仅在写操作，读操作也不例外：
+
+ 
+
+1. 任何的查询语句在开始之前都必须经过检查，即使这条SQL语句永远不会命中缓存
+
+2. 如果查询结果可以被缓存，那么执行完成后，会将结果存入缓存，也会带来额外的系统消耗
+
+ 
+
+基于此，我们要知道并不是什么情况下查询缓存都会提高系统性能，缓存和失效都会带来额外消耗，只有当缓存带来的资源节约大于其本身消耗的资源时，才会给系统带来性能提升。但要如何评估打开缓存是否能够带来性能提升是一件非常困难的事情，也不在本文讨论的范畴内。如果系统确实存在一些性能问题，可以尝试打开查询缓存，并在数据库设计上做一些优化，比如：
+
+ 
+
+1. 用多个小表代替一个大表，注意不要过度设计
+
+2. 批量插入代替循环单条插入
+
+3. 合理控制缓存空间大小，一般来说其大小设置为几十兆比较合适
+
+4. 可以通过SQL_CACHE和SQL_NO_CACHE来控制某个查询语句是否需要进行缓存
+
+ 
+
+最后的忠告是不要轻易打开查询缓存，特别是写密集型应用。如果你实在是忍不住，可以将query_cache_type设置为DEMAND，这时只有加入SQL_CACHE的查询才会走缓存，其他查询则不会，这样可以非常自由地控制哪些查询需要被缓存。
+
+ 
+
+当然查询缓存系统本身是非常复杂的，这里讨论的也只是很小的一部分，其他更深入的话题，比如：缓存是如何使用内存的？如何控制内存的碎片化？事务对查询缓存有何影响等等，读者可以自行阅读相关资料，这里权当抛砖引玉吧。
+
+ 
+
+语法解析和预处理
+
+ 
+
+MySQL通过关键字将SQL语句进行解析，并生成一颗对应的解析树。这个过程解析器主要通过语法规则来验证和解析。比如SQL中是否使用了错误的关键字或者关键字的顺序是否正确等等。预处理则会根据MySQL规则进一步检查解析树是否合法。比如检查要查询的数据表和数据列是否存在等。
+
+ 
+
+查询优化
+
+ 
+
+经过前面的步骤生成的语法树被认为是合法的了，并且由优化器将其转化成查询计划。多数情况下，一条查询可以有很多种执行方式，最后都返回相应的结果。优化器的作用就是找到这其中最好的执行计划。
+
+ 
+
+MySQL使用基于成本的优化器，它尝试预测一个查询使用某种执行计划时的成本，并选择其中成本最小的一个。在MySQL可以通过查询当前会话的last_query_cost的值来得到其计算当前查询的成本。
+
+ 
+````
+mysql> select * from t_message limit 10;
+
+````
+
+
+
+...省略结果集
+
+ 
+ 
+ ````
+
+mysql> show status like 'last_query_cost';
+
++-----------------+-------------+
+
+| Variable_name   | Value       |
+
++-----------------+-------------+
+
+| Last_query_cost | 6391.799000 |
+
++-----------------+-------------+
+
+
+````
+
+
+ 
+
+示例中的结果表示优化器认为大概需要做6391个数据页的随机查找才能完成上面的查询。这个结果是根据一些列的统计信息计算得来的，这些统计信息包括：每张表或者索引的页面个数、索引的基数、索引和数据行的长度、索引的分布情况等等。
+
+ 
+
+有非常多的原因会导致MySQL选择错误的执行计划，比如统计信息不准确、不会考虑不受其控制的操作成本（用户自定义函数、存储过程）、MySQL认为的最优跟我们想的不一样（我们希望执行时间尽可能短，但MySQL值选择它认为成本小的，但成本小并不意味着执行时间短）等等。
+
+ 
+
+MySQL的查询优化器是一个非常复杂的部件，它使用了非常多的优化策略来生成一个最优的执行计划：
+
+ 
+
+* 重新定义表的关联顺序（多张表关联查询时，并不一定按照SQL中指定的顺序进行，但有一些技巧可以指定关联顺序）
+
+* 优化MIN()和MAX()函数（找某列的最小值，如果该列有索引，只需要查找B+Tree索引最左端，反之则可以找到最大值，具体原理见下文）
+
+* 提前终止查询（比如：使用Limit时，查找到满足数量的结果集后会立即终止查询）
+
+* 优化排序（在老版本MySQL会使用两次传输排序，即先读取行指针和需要排序的字段在内存中对其排序，然后再根据排序结果去读取数据行，而新版本采用的是单次传输排序，也就是一次读取所有的数据行，然后根据给定的列排序。对于I/O密集型应用，效率会高很多）
+
+ 
+
+随着MySQL的不断发展，优化器使用的优化策略也在不断的进化，这里仅仅介绍几个非常常用且容易理解的优化策略，其他的优化策略，大家自行查阅吧。
+
+ 
+
+查询执行引擎
+
+ 
+
+在完成解析和优化阶段以后，MySQL会生成对应的执行计划，查询执行引擎根据执行计划给出的指令逐步执行得出结果。整个执行过程的大部分操作均是通过调用存储引擎实现的接口来完成，这些接口被称为handler API。查询过程中的每一张表由一个handler实例表示。实际上，MySQL在查询优化阶段就为每一张表创建了一个handler实例，优化器可以根据这些实例的接口来获取表的相关信息，包括表的所有列名、索引统计信息等。存储引擎接口提供了非常丰富的功能，但其底层仅有几十个接口，这些接口像搭积木一样完成了一次查询的大部分操作。
+
+ 
+
+返回结果给客户端
+
+ 
+
+查询执行的最后一个阶段就是将结果返回给客户端。即使查询不到数据，MySQL仍然会返回这个查询的相关信息，比如该查询影响到的行数以及执行时间等。
+
+ 
+
+如果查询缓存被打开且这个查询可以被缓存，MySQL也会将结果存放到缓存中。
+
+ 
+
+结果集返回客户端是一个增量且逐步返回的过程。有可能MySQL在生成第一条结果时，就开始向客户端逐步返回结果集了。这样服务端就无须存储太多结果而消耗过多内存，也可以让客户端第一时间获得返回结果。需要注意的是，结果集中的每一行都会以一个满足①中所描述的通信协议的数据包发送，再通过TCP协议进行传输，在传输过程中，可能对MySQL的数据包进行缓存然后批量发送。
+
+ 
+
+回头总结一下MySQL整个查询执行过程，总的来说分为6个步骤：
+
+ 
+
+* 客户端向MySQL服务器发送一条查询请求
+
+* 服务器首先检查查询缓存，如果命中缓存，则立刻返回存储在缓存中的结果。否则进入下一阶段
+
+* 服务器进行SQL解析、预处理、再由优化器生成对应的执行计划
+
+* MySQL根据执行计划，调用存储引擎的API来执行查询
+
+* 将结果返回给客户端，同时缓存查询结果
+
+ 
+
+性能优化建议
+
+ 
+
+看了这么多，你可能会期待给出一些优化手段，是的，下面会从3个不同方面给出一些优化建议。但请等等，还有一句忠告要先送给你：不要听信你看到的关于优化的“绝对真理”，包括本文所讨论的内容，而应该是在实际的业务场景下通过测试来验证你关于执行计划以及响应时间的假设。
+
+ 
+
+1Scheme设计与数据类型优化
+
+ 
+
+选择数据类型只要遵循小而简单的原则就好，越小的数据类型通常会更快，占用更少的磁盘、内存，处理时需要的CPU周期也更少。越简单的数据类型在计算时需要更少的CPU周期，比如，整型就比字符操作代价低，因而会使用整型来存储ip地址，使用DATETIME来存储时间，而不是使用字符串。
+
+ 
+
+这里总结几个可能容易理解错误的技巧：
+
+ 
+
+1. 通常来说把可为NULL的列改为NOT NULL不会对性能提升有多少帮助，只是如果计划在列上创建索引，就应该将该列设置为NOT NULL。
+
+2. 对整数类型指定宽度，比如INT(11)，没有任何卵用。INT使用32位（4个字节）存储空间，那么它的表示范围已经确定，所以INT(1)和INT(20)对于存储和计算是相同的。
+
+3. UNSIGNED表示不允许负值，大致可以使正数的上限提高一倍。比如TINYINT存储范围是-128 ~ 127，而UNSIGNED TINYINT存储的范围却是0 - 255。
+
+4. 通常来讲，没有太大的必要使用DECIMAL数据类型。即使是在需要存储财务数据时，仍然可以使用BIGINT。比如需要精确到万分之一，那么可以将数据乘以一百万然后使用BIGINT存储。这样可以避免浮点数计算不准确和DECIMAL精确计算代价高的问题。
+
+5. TIMESTAMP使用4个字节存储空间，DATETIME使用8个字节存储空间。因而，TIMESTAMP只能表示1970 - 2038年，比DATETIME表示的范围小得多，而且TIMESTAMP的值因时区不同而不同。
+
+6. 大多数情况下没有使用枚举类型的必要，其中一个缺点是枚举的字符串列表是固定的，添加和删除字符串（枚举选项）必须使用ALTER TABLE（如果只只是在列表末尾追加元素，不需要重建表）。
+
+7. schema的列不要太多。原因是存储引擎的API工作时需要在服务器层和存储引擎层之间通过行缓冲格式拷贝数据，然后在服务器层将缓冲内容解码成各个列，这个转换过程的代价是非常高的。如果列太多而实际使用的列又很少的话，有可能会导致CPU占用过高。
+
+8. 大表ALTER TABLE非常耗时，MySQL执行大部分修改表结果操作的方法是用新的结构创建一个张空表，从旧表中查出所有的数据插入新表，然后再删除旧表。尤其当内存不足而表又很大，而且还有很大索引的情况下，耗时更久。当然有一些奇技淫巧可以解决这个问题，有兴趣可自行查阅。
+
+ 
+
+2创建高性能索引
+
+ 
+
+索引是提高MySQL查询性能的一个重要途径，但过多的索引可能会导致过高的磁盘使用率以及过高的内存占用，从而影响应用程序的整体性能。应当尽量避免事后才想起添加索引，因为事后可能需要监控大量的SQL才能定位到问题所在，而且添加索引的时间肯定是远大于初始添加索引所需要的时间，可见索引的添加也是非常有技术含量的。
+
+ 
+
+接下来将向你展示一系列创建高性能索引的策略，以及每条策略其背后的工作原理。但在此之前，先了解与索引相关的一些算法和数据结构，将有助于更好的理解后文的内容。
+
+ 
+
+3索引相关的数据结构和算法
+
+ 
+
+通常我们所说的索引是指B-Tree索引，它是目前关系型数据库中查找数据最为常用和有效的索引，大多数存储引擎都支持这种索引。使用B-Tree这个术语，是因为MySQL在CREATE TABLE或其它语句中使用了这个关键字，但实际上不同的存储引擎可能使用不同的数据结构，比如InnoDB就是使用的B+Tree。
+
+B+Tree中的B是指balance，意为平衡。需要注意的是，B+树索引并不能找到一个给定键值的具体行，它找到的只是被查找数据行所在的页，接着数据库会把页读入到内存，再在内存中进行查找，最后得到要查找的数据。
+
+ 
+
+在介绍B+Tree前，先了解一下二叉查找树，它是一种经典的数据结构，其左子树的值总是小于根的值，右子树的值总是大于根的值，如下图①。如果要在这课树中查找值为5的记录，其大致流程：先找到根，其值为6，大于5，所以查找左子树，找到3，而5大于3，接着找3的右子树，总共找了3次。同样的方法，如果查找值为8的记录，也需要查找3次。所以二叉查找树的平均查找次数为(3 + 3 + 3 + 2 + 2 + 1) / 6 = 2.3次，而顺序查找的话，查找值为2的记录，仅需要1次，但查找值为8的记录则需要6次，所以顺序查找的平均查找次数为：(1 + 2 + 3 + 4 + 5 + 6) / 6 = 3.3次，因此大多数情况下二叉查找树的平均查找速度比顺序查找要快。
+
+ 
+
+
+
+二叉查找树和平衡二叉树
+
+ 
+
+由于二叉查找树可以任意构造，同样的值，可以构造出如图②的二叉查找树，显然这棵二叉树的查询效率和顺序查找差不多。若想二叉查找数的查询性能最高，需要这棵二叉查找树是平衡的，也即平衡二叉树（AVL树）。
+
+ 
+
+平衡二叉树首先需要符合二叉查找树的定义，其次必须满足任何节点的两个子树的高度差不能大于1。显然图②不满足平衡二叉树的定义，而图①是一课平衡二叉树。平衡二叉树的查找性能是比较高的（性能最好的是最优二叉树），查询性能越好，维护的成本就越大。比如图①的平衡二叉树，当用户需要插入一个新的值9的节点时，就需要做出如下变动。
+
+ 
+
+
+
+平衡二叉树旋转
+
+ 
+
+通过一次左旋操作就将插入后的树重新变为平衡二叉树是最简单的情况了，实际应用场景中可能需要旋转多次。至此我们可以考虑一个问题，平衡二叉树的查找效率还不错，实现也非常简单，相应的维护成本还能接受，为什么MySQL索引不直接使用平衡二叉树？
+
+ 
+
+随着数据库中数据的增加，索引本身大小随之增加，不可能全部存储在内存中，因此索引往往以索引文件的形式存储的磁盘上。这样的话，索引查找过程中就要产生磁盘I/O消耗，相对于内存存取，I/O存取的消耗要高几个数量级。可以想象一下一棵几百万节点的二叉树的深度是多少？如果将这么大深度的一颗二叉树放磁盘上，每读取一个节点，需要一次磁盘的I/O读取，整个查找的耗时显然是不能够接受的。那么如何减少查找过程中的I/O存取次数？
+
+ 
+
+一种行之有效的解决方法是减少树的深度，将二叉树变为m叉树（多路搜索树），而B+Tree就是一种多路搜索树。理解B+Tree时，只需要理解其最重要的两个特征即可：第一，所有的关键字（可以理解为数据）都存储在叶子节点（Leaf Page），非叶子节点（Index Page）并不存储真正的数据，所有记录节点都是按键值大小顺序存放在同一层叶子节点上。其次，所有的叶子节点由指针连接。如下图为高度为2的简化了的B+Tree。
+
+ 
+
+![](2.png)
+
+
+简化B+Tree
+
+
+ 
+
+怎么理解这两个特征？MySQL将每个节点的大小设置为一个页的整数倍（原因下文会介绍），也就是在节点空间大小一定的情况下，每个节点可以存储更多的内结点，这样每个结点能索引的范围更大更精确。所有的叶子节点使用指针链接的好处是可以进行区间访问，比如上图中，如果查找大于20而小于30的记录，只需要找到节点20，就可以遍历指针依次找到25、30。如果没有链接指针的话，就无法进行区间查找。这也是MySQL使用B+Tree作为索引存储结构的重要原因。
+
+ 
+
+MySQL为何将节点大小设置为页的整数倍，这就需要理解磁盘的存储原理。磁盘本身存取就比主存慢很多，在加上机械运动损耗（特别是普通的机械硬盘），磁盘的存取速度往往是主存的几百万分之一，为了尽量减少磁盘I/O，磁盘往往不是严格按需读取，而是每次都会预读，即使只需要一个字节，磁盘也会从这个位置开始，顺序向后读取一定长度的数据放入内存，预读的长度一般为页的整数倍。
+
+ 
+
+页是计算机管理存储器的逻辑块，硬件及OS往往将主存和磁盘存储区分割为连续的大小相等的块，每个存储块称为一页（许多OS中，页的大小通常为4K）。主存和磁盘以页为单位交换数据。当程序要读取的数据不在主存中时，会触发一个缺页异常，此时系统会向磁盘发出读盘信号，磁盘会找到数据的起始位置并向后连续读取一页或几页载入内存中，然后一起返回，程序继续运行。
+
+ 
+
+MySQL巧妙利用了磁盘预读原理，将一个节点的大小设为等于一个页，这样每个节点只需要一次I/O就可以完全载入。为了达到这个目的，每次新建节点时，直接申请一个页的空间，这样就保证一个节点物理上也存储在一个页里，加之计算机存储分配都是按页对齐的，就实现了读取一个节点只需一次I/O。假设B+Tree的高度为h，一次检索最多需要h-1I/O（根节点常驻内存），复杂度$O(h) = O(\log_{M}N)$。实际应用场景中，M通常较大，常常超过100，因此树的高度一般都比较小，通常不超过3。
+
+ 
+
+最后简单了解下B+Tree节点的操作，在整体上对索引的维护有一个大概的了解，虽然索引可以大大提高查询效率，但维护索引仍要花费很大的代价，因此合理的创建索引也就尤为重要。
+
+ 
+
+仍以上面的树为例，我们假设每个节点只能存储4个内节点。首先要插入第一个节点28，如下图所示。
+
+ 
+
+
+
+
+leaf page和index page都没有满
+
+ 
+
+接着插入下一个节点70，在Index Page中查询后得知应该插入到50 - 70之间的叶子节点，但叶子节点已满，这时候就需要进行也分裂的操作，当前的叶子节点起点为50，所以根据中间值来拆分叶子节点，如下图所示。
+
+ 
+
+
+
+Leaf Page拆分
+
+ 
+
+最后插入一个节点95，这时候Index Page和Leaf Page都满了，就需要做两次拆分，如下图所示。
+
+ 
+  ![](3.jpg)
+
+
+
+Leaf Page与Index Page拆分
+
+ 
+
+拆分后最终形成了这样一颗树。
+
+ 
+![](4.png)
+
+
+最终树
+
+ 
+
+B+Tree为了保持平衡，对于新插入的值需要做大量的拆分页操作，而页的拆分需要I/O操作，为了尽可能的减少页的拆分操作，B+Tree也提供了类似于平衡二叉树的旋转功能。当Leaf Page已满但其左右兄弟节点没有满的情况下，B+Tree并不急于去做拆分操作，而是将记录移到当前所在页的兄弟节点上。通常情况下，左兄弟会被先检查用来做旋转操作。就比如上面第二个示例，当插入70的时候，并不会去做页拆分，而是左旋操作。
+
+ 
+
+
+
+左旋操作
+
+ 
+
+通过旋转操作可以最大限度的减少页分裂，从而减少索引维护过程中的磁盘的I/O操作，也提高索引维护效率。需要注意的是，删除节点跟插入节点类似，仍然需要旋转和拆分操作，这里就不再说明。
+
+ 
+
+高性能策略
+
+ 
+
+通过上文，相信你对B+Tree的数据结构已经有了大致的了解，但MySQL中索引是如何组织数据的存储呢？以一个简单的示例来说明，假如有如下数据表：
+
+ 
+ ````
+
+CREATE TABLE People(
+
+    last_name varchar(50) not null,
+
+    first_name varchar(50) not null,
+
+    dob date not null,
+
+    gender enum(`m`,`f`) not null,
+
+    key(last_name,first_name,dob)
+
+);
+
+ 
+ ````
+
+对于表中每一行数据，索引中包含了last_name、first_name、dob列的值，下图展示了索引是如何组织数据存储的。
+
+ 
+
+
+
+索引如何组织数据存储，来自：高性能MySQL
+
+ 
+
+可以看到，索引首先根据第一个字段来排列顺序，当名字相同时，则根据第三个字段，即出生日期来排序，正是因为这个原因，才有了索引的“最左原则”。
+
+ 
+
+## 1、MySQL不会使用索引的情况：非独立的列
+
+ 
+
+“独立的列”是指索引列不能是表达式的一部分，也不能是函数的参数。比如：
+
+select * from where id + 1 = 5
+
+ 
+
+我们很容易看出其等价于 id = 4，但是MySQL无法自动解析这个表达式，使用函数是同样的道理。
+
+ 
+
+## 2、前缀索引
+
+ 
+
+如果列很长，通常可以索引开始的部分字符，这样可以有效节约索引空间，从而提高索引效率。
+
+ 
+
+## 3、多列索引和索引顺序
+
+ 
+
+在多数情况下，在多个列上建立独立的索引并不能提高查询性能。理由非常简单，MySQL不知道选择哪个索引的查询效率更好，所以在老版本，比如MySQL5.0之前就会随便选择一个列的索引，而新的版本会采用合并索引的策略。举个简单的例子，在一张电影演员表中，在actor_id和film_id两个列上都建立了独立的索引，然后有如下查询：
+
+````
+select film_id,actor_id from film_actor where actor_id = 1 or film_id = 1
+````
+ 
+ 
+
+老版本的MySQL会随机选择一个索引，但新版本做如下的优化：
+
+````
+
+select film_id,actor_id from film_actor where actor_id = 1 
+
+union all
+
+select film_id,actor_id from film_actor where film_id = 1 and actor_id <> 1
+
+````
+
+
+ 
+
+当出现多个索引做相交操作时（多个AND条件），通常来说一个包含所有相关列的索引要优于多个独立索引。
+
+当出现多个索引做联合操作时（多个OR条件），对结果集的合并、排序等操作需要耗费大量的CPU和内存资源，特别是当其中的某些索引的选择性不高，需要返回合并大量数据时，查询成本更高。所以这种情况下还不如走全表扫描。
+
+ 
+
+因此explain时如果发现有索引合并（Extra字段出现Using union），应该好好检查一下查询和表结构是不是已经是最优的，如果查询和表都没有问题，那只能说明索引建的非常糟糕，应当慎重考虑索引是否合适，有可能一个包含所有相关列的多列索引更适合。
+
+ 
+
+前面我们提到过索引如何组织数据存储的，从图中可以看到多列索引时，索引的顺序对于查询是至关重要的，很明显应该把选择性更高的字段放到索引的前面，这样通过第一个字段就可以过滤掉大多数不符合条件的数据。
+
+ 
+
+索引选择性是指不重复的索引值和数据表的总记录数的比值，选择性越高查询效率越高，因为选择性越高的索引可以让MySQL在查询时过滤掉更多的行。唯一索引的选择性是1，这时最好的索引选择性，性能也是最好的。
+
+ 
+
+理解索引选择性的概念后，就不难确定哪个字段的选择性较高了，查一下就知道了，比如：
+````
+SELECT * FROM payment where staff_id = 2 and customer_id = 584
+````
+ 
+
+是应该创建(staff_id,customer_id)的索引还是应该颠倒一下顺序？执行下面的查询，哪个字段的选择性更接近1就把哪个字段索引前面就好。
+
+ 
+````
+select count(distinct staff_id)/count(*) as staff_id_selectivity,
+
+       count(distinct customer_id)/count(*) as customer_id_selectivity,
+
+       count(*) from payment
+````
+ 
+
+多数情况下使用这个原则没有任何问题，但仍然注意你的数据中是否存在一些特殊情况。举个简单的例子，比如要查询某个用户组下有过交易的用户信息：
+
+````
+select user_id from trade where user_group_id = 1 and trade_amount > 0
+````
+
+ 
+
+MySQL为这个查询选择了索引(user_group_id,trade_amount)，如果不考虑特殊情况，这看起来没有任何问题，但实际情况是这张表的大多数数据都是从老系统中迁移过来的，由于新老系统的数据不兼容，所以就给老系统迁移过来的数据赋予了一个默认的用户组。这种情况下，通过索引扫描的行数跟全表扫描基本没什么区别，索引也就起不到任何作用。
+
+ 
+
+推广开来说，经验法则和推论在多数情况下是有用的，可以指导我们开发和设计，但实际情况往往会更复杂，实际业务场景下的某些特殊情况可能会摧毁你的整个设计。
+
+ 
+
+## 4、避免多个范围条件
+
+ 
+
+实际开发中，我们会经常使用多个范围条件，比如想查询某个时间段内登录过的用户：
+
+````
+select user.* from user where login_time > '2017-04-01' and age between 18 and 30;
+````
+
+ 
+
+这个查询有一个问题：它有两个范围条件，login_time列和age列，MySQL可以使用login_time列的索引或者age列的索引，但无法同时使用它们。
+
+ 
+
+## 5、覆盖索引
+
+ 
+
+如果一个索引包含或者说覆盖所有需要查询的字段的值，那么就没有必要再回表查询，这就称为覆盖索引。覆盖索引是非常有用的工具，可以极大的提高性能，因为查询只需要扫描索引会带来许多好处：
+
+ 
+
+* 索引条目远小于数据行大小，如果只读取索引，极大减少数据访问量
+
+* 索引是有按照列值顺序存储的，对于I/O密集型的范围查询要比随机从磁盘读取每一行数据的IO要少的多
+
+ 
+
+## 6、使用索引扫描来排序
+
+ 
+
+MySQL有两种方式可以生产有序的结果集，其一是对结果集进行排序的操作，其二是按照索引顺序扫描得出的结果自然是有序的。如果explain的结果中type列的值为index表示使用了索引扫描来做排序。
+
+ 
+
+扫描索引本身很快，因为只需要从一条索引记录移动到相邻的下一条记录。但如果索引本身不能覆盖所有需要查询的列，那么就不得不每扫描一条索引记录就回表查询一次对应的行。这个读取操作基本上是随机I/O，因此按照索引顺序读取数据的速度通常要比顺序地全表扫描要慢。
+
+ 
+
+在设计索引时，如果一个索引既能够满足排序，又满足查询，是最好的。
+
+ 
+
+只有当索引的列顺序和ORDER BY子句的顺序完全一致，并且所有列的排序方向也一样时，才能够使用索引来对结果做排序。如果查询需要关联多张表，则只有ORDER BY子句引用的字段全部为第一张表时，才能使用索引做排序。ORDER BY子句和查询的限制是一样的，都要满足最左前缀的要求（有一种情况例外，就是最左的列被指定为常数，下面是一个简单的示例），其它情况下都需要执行排序操作，而无法利用索引排序。
+
+ 
+
+// 最左列为常数，索引：(date,staff_id,customer_id)
+
+````
+select  staff_id,customer_id from demo where date = '2015-06-01' order by staff_id,customer_id
+````
+
+ 
+
+## 7、冗余和重复索引
+
+ 
+
+冗余索引是指在相同的列上按照相同的顺序创建的相同类型的索引，应当尽量避免这种索引，发现后立即删除。比如有一个索引(A,B)，再创建索引(A)就是冗余索引。冗余索引经常发生在为表添加新索引时，比如有人新建了索引(A,B)，但这个索引不是扩展已有的索引(A)。
+
+ 
+
+大多数情况下都应该尽量扩展已有的索引而不是创建新索引。但有极少情况下出现性能方面的考虑需要冗余索引，比如扩展已有索引而导致其变得过大，从而影响到其他使用该索引的查询。
+
+ 
+
+## 8、删除长期未使用的索引
+
+ 
+
+定期删除一些长时间未使用过的索引是一个非常好的习惯。
+
+ 
+
+关于索引这个话题打算就此打住，最后要说一句，索引并不总是最好的工具，只有当索引帮助提高查询速度带来的好处大于其带来的额外工作时，索引才是有效的。对于非常小的表，简单的全表扫描更高效。对于中到大型的表，索引就非常有效。对于超大型的表，建立和维护索引的代价随之增长，这时候其他技术也许更有效，比如分区表。最后的最后，explain后再提测是一种美德。
+
+ 
+
+特定类型查询优化
+
+ 
+
+## 优化COUNT()查询
+
+ 
+
+COUNT()可能是被大家误解最多的函数了，它有两种不同的作用，其一是统计某个列值的数量，其二是统计行数。统计列值时，要求列值是非空的，它不会统计NULL。如果确认括号中的表达式不可能为空时，实际上就是在统计行数。最简单的就是当使用COUNT(*)时，并不是我们所想象的那样扩展成所有的列，实际上，它会忽略所有的列而直接统计所有的行数。
+
+ 
+
+我们最常见的误解也就在这儿，在括号内指定了一列却希望统计结果是行数，而且还常常误以为前者的性能会更好。但实际并非这样，如果要统计行数，直接使用COUNT(*)，意义清晰，且性能更好。
+
+ 
+
+有时候某些业务场景并不需要完全精确的COUNT值，可以用近似值来代替，EXPLAIN出来的行数就是一个不错的近似值，而且执行EXPLAIN并不需要真正地去执行查询，所以成本非常低。通常来说，执行COUNT()都需要扫描大量的行才能获取到精确的数据，因此很难优化，MySQL层面还能做得也就只有覆盖索引了。如果不还能解决问题，只有从架构层面解决了，比如添加汇总表，或者使用redis这样的外部缓存系统。
+
+ 
+
+## 优化关联查询
+
+ 
+
+在大数据场景下，表与表之间通过一个冗余字段来关联，要比直接使用JOIN有更好的性能。如果确实需要使用关联查询的情况下，需要特别注意的是：
+
+ 
+
+1. 确保ON和USING字句中的列上有索引。在创建索引的时候就要考虑到关联的顺序。当表A和表B用列c关联的时候，如果优化器关联的顺序是A、B，那么就不需要在A表的对应列上创建索引。没有用到的索引会带来额外的负担，一般来说，除非有其他理由，只需要在关联顺序中的第二张表的相应列上创建索引（具体原因下文分析）。
+
+2. 确保任何的GROUP BY和ORDER BY中的表达式只涉及到一个表中的列，这样MySQL才有可能使用索引来优化。
+
+ 
+
+要理解优化关联查询的第一个技巧，就需要理解MySQL是如何执行关联查询的。当前MySQL关联执行的策略非常简单，它对任何的关联都执行嵌套循环关联操作，即先在一个表中循环取出单条数据，然后在嵌套循环到下一个表中寻找匹配的行，依次下去，直到找到所有表中匹配的行为为止。然后根据各个表匹配的行，返回查询中需要的各个列。
+
+ 
+
+太抽象了？以上面的示例来说明，比如有这样的一个查询：
+
+````
+SELECT A.xx,B.yy
+
+FROM A INNER JOIN B USING(c)
+
+WHERE A.xx IN (5,6)
+````
+
+ 
+
+假设MySQL按照查询中的关联顺序A、B来进行关联操作，那么可以用下面的伪代码表示MySQL如何完成这个查询：
+
+````
+outer_iterator = SELECT A.xx,A.c FROM A WHERE A.xx IN (5,6);
+
+outer_row = outer_iterator.next;
+
+while(outer_row) {
+
+    inner_iterator = SELECT B.yy FROM B WHERE B.c = outer_row.c;
+
+    inner_row = inner_iterator.next;
+
+    while(inner_row) {
+
+        output[inner_row.yy,outer_row.xx];
+
+        inner_row = inner_iterator.next;
+
+    }
+
+    outer_row = outer_iterator.next;
+
+}
+
+ ````
+ 
+
+可以看到，最外层的查询是根据A.xx列来查询的，A.c上如果有索引的话，整个关联查询也不会使用。再看内层的查询，很明显B.c上如果有索引的话，能够加速查询，因此只需要在关联顺序中的第二张表的相应列上创建索引即可。
+
+ 
+
+## 优化LIMIT分页
+
+ 
+
+当需要分页操作时，通常会使用LIMIT加上偏移量的办法实现，同时加上合适的ORDER BY字句。如果有对应的索引，通常效率会不错，否则，MySQL需要做大量的文件排序操作。
+
+ 
+
+一个常见的问题是当偏移量非常大的时候，比如：LIMIT 10000 20这样的查询，MySQL需要查询10020条记录然后只返回20条记录，前面的10000条都将被抛弃，这样的代价非常高。
+
+ 
+
+优化这种查询一个最简单的办法就是尽可能的使用覆盖索引扫描，而不是查询所有的列。然后根据需要做一次关联查询再返回所有的列。对于偏移量很大时，这样做的效率会提升非常大。考虑下面的查询：
+````
+SELECT film_id,description FROM film ORDER BY title LIMIT 50,5;
+````
+
+ 
+
+如果这张表非常大，那么这个查询最好改成下面的样子：
+````
+SELECT film.film_id,film.description
+
+FROM film INNER JOIN (
+
+    SELECT film_id FROM film ORDER BY title LIMIT 50,5
+
+) AS tmp USING(film_id);
+````
+ 
+
+这里的延迟关联将大大提升查询效率，让MySQL扫描尽可能少的页面，获取需要访问的记录后在根据关联列回原表查询所需要的列。
+
+ 
+
+有时候如果可以使用书签记录上次取数据的位置，那么下次就可以直接从该书签记录的位置开始扫描，这样就可以避免使用OFFSET，比如下面的查询：
+
+````
+SELECT id FROM t LIMIT 10000, 10;
+````
+ 
+
+改为：
+
+````
+SELECT id FROM t WHERE id > 10000 LIMIT 10;
+````
+ 
+
+其它优化的办法还包括使用预先计算的汇总表，或者关联到一个冗余表，冗余表中只包含主键列和需要做排序的列。
+
+ 
+
+## 优化UNION
+
+ 
+
+MySQL处理UNION的策略是先创建临时表，然后再把各个查询结果插入到临时表中，最后再来做查询。因此很多优化策略在UNION查询中都没有办法很好的时候。经常需要手动将WHERE、LIMIT、ORDER BY等字句“下推”到各个子查询中，以便优化器可以充分利用这些条件先优化。
+
+ 
+
+除非确实需要服务器去重，否则就一定要使用UNION ALL，如果没有ALL关键字，MySQL会给临时表加上DISTINCT选项，这会导致整个临时表的数据做唯一性检查，这样做的代价非常高。当然即使使用ALL关键字，MySQL总是将结果放入临时表，然后再读出，再返回给客户端。虽然很多时候没有这个必要，比如有时候可以直接把每个子查询的结果返回给客户端。
+
+ 
+
+结语
+
+ 
+
+理解查询是如何执行以及时间都消耗在哪些地方，再加上一些优化过程的知识，可以帮助大家更好的理解MySQL，理解常见优化技巧背后的原理。希望本文中的原理、示例能够帮助大家更好的将理论和实践联系起来，更多的将理论知识运用到实践中。
+
+ 
+
+其他也没啥说的了，给大家留两个思考题吧，可以在脑袋里想想答案，这也是大家经常挂在嘴边的，但很少有人会思考为什么？
+
+ 
+
+1. 有非常多的程序员在分享时都会抛出这样一个观点：尽可能不要使用存储过程，存储过程非常不容易维护，也会增加使用成本，应该把业务逻辑放到客户端。既然客户端都能干这些事，那为什么还要存储过程？
+
+2. JOIN本身也挺方便的，直接查询就好了，为什么还需要视图呢？

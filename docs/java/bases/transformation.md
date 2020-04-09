@@ -68,6 +68,7 @@ public static void doEate(Animail h) {
 
 二、向下转型。
 与向上转型相反，即是把父类对象转为子类对象。
+````
 public class Animail {
     private String name="Animail";
     public void eat(){
@@ -109,6 +110,8 @@ Human c=(Human)a2;//不安全的向下转型,编译无错但会运行会出错
 Exception in thread "main" java.lang.ClassCastException: study.转型实例.Animail cannot be cast to study.转型实例.Human
 at study.转型实例.Main.main(Main.java:8)
 
+`````
+
 向下转型的作用
 
 向上转型时 b会遗失除与父类对象共有的其他方法；可以用向下转型在重新转回，这个和向上转型的作用要结合理解。
@@ -118,6 +121,7 @@ at study.转型实例.Main.main(Main.java:8)
 三、当转型遇到重写和同名数据
 看下面一个例子，你觉得它会输出什么？
 
+````
 复制代码
 public class A {
    public int i=10;
@@ -145,6 +149,7 @@ class B extends A{
     }
 }
 复制代码
+````
 结果
 
 

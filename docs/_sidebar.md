@@ -20,3 +20,6 @@
   
 - 万花筒
   - [Java 转型问题（向上转型和向下转型）](java/bases/transformation.md)
+  - [RPC和Dubbo简介）](java/bases/rpcAndDubbo.md)
+  - [通俗易懂 RPC、REST、Dubbo、HTTP、RMI 的区别与联系）](java/bases/rpc.md)
+  - [轻松理解RPC及RMI）](java/bases/rpcAndRmi.md)
