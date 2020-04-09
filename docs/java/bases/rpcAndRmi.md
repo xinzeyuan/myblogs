@@ -27,7 +27,7 @@ RMI(Remote Method Invocation):远程方法调用，能够让在客户端Java虚�
 4、RMI服务器端在执行了相关方法，并回传方法执行结果后，应该断开与RMI客户端的连接。
 
  下面根据图讲一讲实现过程
-![](https://img-blog.csdnimg.cn/20181110122613450.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3ljX19fX19f,size_16,color_FFFFFF,t_70)
+![](20181110122613450.png)
 
 首先，就是服务器端了，服务器端只有两个作用，第一个就是在启动服务器的时候，他会通过传入的接口和实现类进行注册。当然在服务器只是给外部提供一个接口，真正的注册在工厂里边。还有一个作用就是大多数服务器的作用，持续不断的监听，当有客户端发起连接请求时，新建一个和该客户端唯一对应得Execute，和客户端进行通讯。然而可能有多个客户端都会用到该服务器的方法，因此该监听在线程中跑着。
 ````
