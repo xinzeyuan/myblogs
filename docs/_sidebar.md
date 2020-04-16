@@ -23,3 +23,4 @@
   - [RPC和Dubbo简介）](java/bases/rpcAndDubbo.md)
   - [通俗易懂 RPC、REST、Dubbo、HTTP、RMI 的区别与联系）](java/bases/rpc.md)
   - [轻松理解RPC及RMI）](java/bases/rpcAndRmi.md)
+  - [流程图](java/bases/rpcAndRmi.md)
