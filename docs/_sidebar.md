@@ -24,3 +24,4 @@
   - [通俗易懂 RPC、REST、Dubbo、HTTP、RMI 的区别与联系）](java/bases/rpc.md)
   - [轻松理解RPC及RMI）](java/bases/rpcAndRmi.md)
   - [流程图](java/bases/rpcAndRmi.md)
+  - [Spring Bean的生命周期](java/bases/springBean/lifeCycleOfSpringBean.md)
