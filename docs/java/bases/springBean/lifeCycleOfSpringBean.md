@@ -46,7 +46,7 @@ protected Object doCreateBean(final String beanName, final RootBeanDefinition mb
    }
    ````
    
-至于销毁，是在容器关闭时调用的，详见ConfigurableApplicationContext#close()
+至于销毁，是在容器关闭时调用的，详见<span style="color: green">ConfigurableApplicationContext#close()</span>
 
 # 常用扩展点
 Spring生命周期相关的常用扩展点非常多，所以问题不是不知道，而是记不住或者记不牢。其实记不住的根本原因还是不够了解，这里通过源码+分类的方式帮大家记忆。
@@ -130,7 +130,7 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable B
 
 ````
 
-可以看到该方法在属性赋值方法内，但是在真正执行赋值操作之前。其返回值为boolean，返回false时可以阻断属性赋值阶段（continueWithPropertyPopulation = false;）。
+可以看到该方法在属性赋值方法内，但是在真正执行赋值操作之前。其返回值为boolean，返回false时可以阻断属性赋值阶段<span style="color: green">（continueWithPropertyPopulation = false;）</span>。
 
 关于BeanPostProcessor执行阶段的源码穿插在下文Aware接口的调用时机分析中，因为部分Aware功能的就是通过他实现的!只需要先记住BeanPostProcessor在初始化前后调用就可以了。
 
@@ -146,12 +146,14 @@ Aware类型的接口的作用就是让我们能够拿到Spring容器中的一些
 Aware接口众多，这里同样通过分类的方式帮助大家记忆。
 Aware接口具体可以分为两组，至于为什么这么分，详见下面的源码分析。如下排列顺序同样也是Aware接口的执行顺序，能够见名知意的接口不再解释。
 
-Aware Group1
+<span style="color: green">Aware Group1</span>
 
 + 1 BeanNameAware
 + 2 BeanClassLoaderAware
 + 3 BeanFactoryAware
-Aware Group2
+
+
+<span style="color: green">Aware Group2</span>
 
 + 1 EnvironmentAware
 + 2 EmbeddedValueResolverAware 这个知道的人可能不多，实现该接口能够获取Spring EL解析器，用户的自定义注解需要支持spel表达式的时候可以使用，非常方便。
@@ -200,7 +202,7 @@ BeanPostProcessor的调用时机也能在这里体现，包围住invokeInitMetho
 # 简单的两个生命周期接口
 至于剩下的两个生命周期接口就很简单了，实例化和属性赋值都是Spring帮助我们做的，能够自己实现的有初始化和销毁两个生命周期阶段。
 
-+ 1 InitializingBean 对应生命周期的初始化阶段，在上面源码的invokeInitMethods(beanName, wrappedBean, mbd);方法中调用。
++ 1 InitializingBean 对应生命周期的初始化阶段，在上面源码的<span style="color: green">invokeInitMethods(beanName, wrappedBean, mbd);</span>方法中调用。
 有一点需要注意，因为Aware方法都是执行在初始化方法之前，所以可以在初始化方法中放心大胆的使用Aware接口获取的资源，这也是我们自定义扩展Spring的常用方式。
 除了实现InitializingBean接口之外还能通过注解或者xml配置的方式指定初始化方法，至于这几种定义方式的调用顺序其实没有必要记。因为这几个方法对应的都是同一个生命周期，只是实现方式不同，我们一般只采用其中一种方式。
 + 2 DisposableBean 类似于InitializingBean，对应生命周期的销毁阶段，以ConfigurableApplicationContext#close()方法作为入口，实现是通过循环取所有实现了DisposableBean接口的Bean然后调用其destroy()方法 。感兴趣的可以自行跟一下源码。
@@ -330,7 +332,7 @@ PriorityOrdered、Ordered接口作为Spring整个框架通用的排序接口，�
 ````
 
 # 总结
-Spring Bean的生命周期分为<span style="color: green">四个阶段</span>和多个扩展点。扩展点又可以分为影响多个Bean和影响单个Bean。整理如下：
+Spring Bean的生命周期分为<span style="color: green">四个阶段</span>和多个扩展点。扩展点又可以分为<span style="color: green">影响多个Bean</span>和<span style="color: green">影响单个Bean</span>。整理如下：
 四个阶段
 
 * 实例化 Instantiation
