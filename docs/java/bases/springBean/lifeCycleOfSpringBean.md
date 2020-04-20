@@ -330,7 +330,7 @@ PriorityOrdered、Ordered接口作为Spring整个框架通用的排序接口，�
 ````
 
 # 总结
-Spring Bean的生命周期分为$\color{#FF7D00}{四个阶段}$和多个扩展点。扩展点又可以分为影响多个Bean和影响单个Bean。整理如下：
+Spring Bean的生命周期分为<span style="color: green">四个阶段</span>和多个扩展点。扩展点又可以分为影响多个Bean和影响单个Bean。整理如下：
 四个阶段
 
 * 实例化 Instantiation
