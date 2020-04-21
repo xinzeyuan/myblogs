@@ -25,4 +25,4 @@
   - [轻松理解RPC及RMI）](java/bases/rpcAndRmi.md)
   - [流程图](java/bases/rpcAndRmi.md)
   - [Spring Bean的生命周期](java/bases/springBean/lifeCycleOfSpringBean.md)
-  - [TCP 为什么三次握手而不是两次握手](java/bases/TCP/threeHands.md)
+  - [TCP为什么三次握手而不是两次握手](java/bases/TCP/threeHands.md)
