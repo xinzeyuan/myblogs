@@ -27,3 +27,6 @@
   - [Spring Bean的生命周期](java/bases/springBean/lifeCycleOfSpringBean.md)
   - [TCP为什么三次握手而不是两次握手](java/bases/TCP/threeHands.md)
   - [四次挥手，为什么是四次](java/bases/TCP/fourWaves.md)
+  - [浏览器存储](java/bases/browser/browserStorage.md)
+  - [SpringBoot之ApplicationContextInitializer的理解和使用](java/bases/springBoot/applicationContextInitializer.md)
+  - [SpringBoot之动态管理配置文件扩展接口](java/bases/springBoot/environmentPostProcessor.md)
