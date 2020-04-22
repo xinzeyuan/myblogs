@@ -63,6 +63,7 @@
 context.initializer.classes=org.springframework.boot.demo.common.MyApplicationContextInitializer 
 ```
 
+![](1635748-20190606235945762-92872664.png)
 　　
 
 　　2.3、SpringBoot的SPI扩展---META-INF/spring.factories中配置
@@ -73,15 +74,15 @@ org.springframework.context.ApplicationContextInitializer=org.springframework.bo
 
  
 
-返回目录
-三、排序问题
-　　如图所示改造一下mian方法。打一个断点，debug查看排序情况。
 
+# 三、排序问题
+　　如图所示改造一下mian方法。打一个断点，debug查看排序情况。
+    ![](1635748-20190608191531338-682563572.png)
 　　
 
 　　给 MyApplicationContextInitializer 加上Order注解：我们指定其拥有最高的排序级别。（越高越早执行）
 
-复制代码
+```
 1 @Order(Ordered.HIGHEST_PRECEDENCE)
 2 public class MyApplicationContextInitializer implements ApplicationContextInitializer{
 3     @Override
@@ -89,30 +90,31 @@ org.springframework.context.ApplicationContextInitializer=org.springframework.bo
 5         System.out.println("-----MyApplicationContextInitializer initialize-----");
 6     }
 7 }
-复制代码
+```
  
 
 　　下面我们通过debug分别验证二章节中提到的三种方法排序是否都是可以的。
 
 　　首先验证2.1章节中采用的main函数中添加：debug，断点处查看 application.getInitializers() 这行代码的结果可见，排序生效了。
 
-　　
+　　![](1635748-20190608192626424-830108806.png)
 
 　　然后再分别验证2.2和2.3章节中的方法。排序都是可以实现的。
 
 　　然而当采用2.3中的SPI扩展的方式，排序指定 @Order(Ordered.LOWEST_PRECEDENCE) 排序并没有生效。当然采用实现Ordered接口的方式，排序验证结果都是一样的。
 
- 四、通过源码分析ApplicationContextInitializer何时被调用
+
+ # 四、通过源码分析ApplicationContextInitializer何时被调用
 
 　　debug差看上文中自定的 MyApplicationContextInitializer 的调用栈。
 
-　　
+　　![](1635748-20190608232310981-400016456.png)
 
 　　可见 ApplicationContextInitializer 在容器刷新前的准备阶段被调用。 refreshContext(context); 
 
 　　在SpringBoot的启动函数中， ApplicationContextInitializer 
 
-复制代码
+```
  1     public ConfigurableApplicationContext run(String... args) {
  2         //记录程序运行时间
  3         StopWatch stopWatch = new StopWatch();
@@ -166,12 +168,12 @@ org.springframework.context.ApplicationContextInitializer=org.springframework.bo
 51         }
 52         return context;
 53     }
-复制代码
+```
  
 
  　　然后看在 refreshContext(context); 具体是怎么被调用的。
 
-复制代码
+```
 1 private void prepareContext(ConfigurableApplicationContext context,
 2                             ConfigurableEnvironment environment, SpringApplicationRunListeners listeners,
 3                             ApplicationArguments applicationArguments, Banner printedBanner) {
@@ -180,12 +182,12 @@ org.springframework.context.ApplicationContextInitializer=org.springframework.bo
 6     applyInitializers(context);
 7     ...
 8 }
-复制代码
+```
  
 
  　　然后在 applyInitializers 中遍历调用每一个被加载的 ApplicationContextInitializer 的  initialize(context);  方法，并将 ConfigurableApplicationContext 的实例传递给 initialize 方法。
 
-复制代码
+```
 1 protected void applyInitializers(ConfigurableApplicationContext context) {
 2     for (ApplicationContextInitializer initializer : getInitializers()) {
 3         Class<?> requiredType = GenericTypeResolver.resolveTypeArgument(
@@ -194,7 +196,7 @@ org.springframework.context.ApplicationContextInitializer=org.springframework.bo
 6         initializer.initialize(context);
 7     }
 8 }
-复制代码
+```
  
 
 　　OK，到这里通过源码说明了 ApplicationContextInitializer 是何时及如何被调用的。
