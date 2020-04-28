@@ -32,3 +32,5 @@
   - [浏览器存储](java/bases/browser/browserStorage.md)
   - [SpringBoot之ApplicationContextInitializer的理解和使用](java/bases/springBoot/applicationContextInitializer.md)
   - [SpringBoot之动态管理配置文件扩展接口](java/bases/springBoot/environmentPostProcessor.md)
+  - [UML各种图总结-精华](java/bases/UML/uml.md)
+  - [对Java Serializable（序列化）的理解和总结](java/bases/serializable/serializable.md)
