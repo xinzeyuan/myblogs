@@ -359,6 +359,157 @@ public class ClientConfiguration {
 }
 ````
 
+````
+public class ApacheHttpClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApacheHttpClient.class);
+
+    private static final Integer DEFAULT_CONNECTION_TIMEOUT = 10000;
+    private static final Integer DEFAULT_READ_TIMEOUT = 30000;
+
+    private static CloseableHttpClient HTTP_ASYNC_CLIENT;
+
+    static {
+        SSLContext sslContext = null;
+        try{
+            //默认校验证书
+            sslContext = SSLContexts.createSystemDefault();
+        }
+        catch (Exception ex){
+            LOGGER.error("build http ssl context error",ex);
+        }
+
+        //检验域名
+        HostnameVerifier hostnameVerifier = new DefaultHostnameVerifier();
+
+        SocketConfig socketConfig = SocketConfig.custom()
+                .setTcpNoDelay(true)
+                .setSoKeepAlive(true)
+                .setBacklogSize(1024)
+                .setRcvBufSize(8092)
+                .build();
+
+        // Create a registry of custom connection socket factories for supported
+        // protocol schemes.
+        Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
+                .register("http", PlainConnectionSocketFactory.INSTANCE)
+                .register("https", new SSLConnectionSocketFactory(sslContext,hostnameVerifier))
+                .build();
+
+        // Create a connection manager with custom configuration.
+        PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+        connManager.setDefaultSocketConfig(socketConfig);
+        // Validate connections after 1 sec of inactivity
+        connManager.setValidateAfterInactivity(1000);
+
+        // Configure total max or per route limits for persistent connections
+        // that can be kept in the pool or leased by the connection manager.
+        connManager.setMaxTotal(20480);
+        connManager.setDefaultMaxPerRoute(1024);
+
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setSocketTimeout(DEFAULT_READ_TIMEOUT)
+                .setConnectTimeout(DEFAULT_CONNECTION_TIMEOUT)
+                .setAuthenticationEnabled(false)
+                .setRedirectsEnabled(false)
+                .build();
+        try {
+            // Create an HttpClient with the given custom dependencies and configuration.
+            HTTP_ASYNC_CLIENT = HttpClients.custom()
+                    .setConnectionManager(connManager)
+                    .setDefaultRequestConfig(requestConfig)
+                    .build();
+            LOGGER.info("========Http Client Start, class:{}==========",HTTP_ASYNC_CLIENT.getClass().getCanonicalName());
+        } catch (Exception e) {
+            LOGGER.error("===================init Http Client failed========================",e);
+            Runtime.getRuntime().exit(0);
+        }
+    }
+
+
+    public static byte[] execute(String url, String method, Map<String, String> header, byte[] body, Integer connectionTimeout, Integer readTimeOut) throws IOException {
+        CloseableHttpResponse response = null;
+
+        InputStream inputStream = null;
+
+        try {
+            if(!url.startsWith("http")){
+                url = "http://"+url;
+            }
+            RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();
+
+            RequestBuilder requestBuilder = RequestBuilder.create(method.toUpperCase());
+
+            //连接超时
+            if(connectionTimeout != null){
+                requestConfigBuilder.setConnectTimeout(connectionTimeout);
+            }
+
+            //读取超时
+            if(readTimeOut != null){
+                requestConfigBuilder.setSocketTimeout(readTimeOut).setConnectionRequestTimeout(readTimeOut);
+            }
+
+            if(header != null){
+                //维持连接
+                header.putIfAbsent("Connection", "keep-alive");
+
+                //填充header
+                for(Map.Entry<String, String> entry : header.entrySet()){
+                    requestBuilder.addHeader(entry.getKey(),entry.getValue());
+                }
+            }
+
+            //传输body
+            if(body != null){
+                HttpEntity httpEntity = new ByteArrayEntity(body);
+                requestBuilder.setEntity(httpEntity);
+            }
+
+            requestBuilder.setUri(url);
+
+            RequestConfig requestConfig = requestConfigBuilder.build();
+            requestBuilder.setConfig(requestConfig);
+
+            response = HTTP_ASYNC_CLIENT.execute(requestBuilder.build());
+
+            if(response != null){
+                HttpEntity entity = response.getEntity();
+                if(entity != null && entity.isStreaming()) {
+                    inputStream = entity.getContent();
+                    if(inputStream != null) {
+                        return IOUtils.toByteArray(inputStream);
+                    }
+                }
+                else {
+                    LOGGER.warn("response entity empty,url:{},code:{},reason:{}",
+                            url,
+                            response.getStatusLine().getStatusCode(),
+                            response.getStatusLine().getReasonPhrase());
+                }
+            }
+
+            return null;
+        } catch (Exception e) {
+            LOGGER.error("fetch http error,url:{}",url,e);
+            throw e;
+        }
+        finally {
+            if(inputStream != null){
+                IOUtils.closeQuietly(inputStream);
+            }
+            if(response != null){
+                try {
+                    response.close();
+                } catch (IOException e) {
+                    LOGGER.error("close http response error,url:{}",url,e);
+                }
+            }
+        }
+    }
+}
+````
+
+
 作者：李不言被占用了
 链接：https://www.jianshu.com/p/f38a62efaa96
 来源：简书
