@@ -35,3 +35,4 @@
   - [UML各种图总结-精华](java/bases/UML/uml.md)
   - [对Java Serializable（序列化）的理解和总结](java/bases/serializable/serializable.md)
   - [对Java Serializable（序列化）的理解和总结](java/bases/httpclient/httpclient.md)
+  - [对Java Serializable（序列化）的理解和总结](java/bases/ideal/ideal.md)
