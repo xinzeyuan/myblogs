@@ -38,3 +38,4 @@
   - [对Java Serializable（序列化）的理解和总结](java/bases/ideal/ideal.md)
   - [聊聊spring的那些扩展机制](java/bases/springBean/lifeCycleOfSpringBean3.md)
   - [Spring配置文件schema约束](java/bases/springSchemal/springSchemal.md)
+  - [Spring探秘|妙用BeanPostProcessor](java/bases/springBean/lifeCycleOfSpringBean4.md)
