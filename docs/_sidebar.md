@@ -36,3 +36,4 @@
   - [对Java Serializable（序列化）的理解和总结](java/bases/serializable/serializable.md)
   - [对Java Serializable（序列化）的理解和总结](java/bases/httpclient/httpclient.md)
   - [对Java Serializable（序列化）的理解和总结](java/bases/ideal/ideal.md)
+  - [聊聊spring的那些扩展机制](java/bases/springBean/lifeCycleOfSpringBean3.md)
