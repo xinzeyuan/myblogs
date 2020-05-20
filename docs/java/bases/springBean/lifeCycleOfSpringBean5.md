@@ -28,8 +28,8 @@ InstantiationAwareBeanPostProcessor源码解析
 # 方法解析
 * Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName)：在实例化之前执行【构造方法之前执行】
 + 返回值：如果返回的不为null，那么后续的Bean的创建流程【实例化、初始化afterProperties】都不会执行，而是直接使用返回的快捷Bean，此时的正常执行顺序如下：
-InstantiationAwareBeanPostProcessor接口中的postProcessBeforeInstantiation，在实例化之前调用
-BeanPostProcessor接口中的postProcessAfterInitialization，在实例化之后调用
++ > InstantiationAwareBeanPostProcessor接口中的postProcessBeforeInstantiation，在实例化之前调用
++ > BeanPostProcessor接口中的postProcessAfterInitialization，在实例化之后调用
 
 ````
 /**
