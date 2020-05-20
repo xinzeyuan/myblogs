@@ -97,8 +97,8 @@ protected Object resolveBeforeInstantiation(String beanName, RootBeanDefinition 
         }
 ````
 		
-boolean postProcessAfterInstantiation(Object bean, String beanName) throws BeansException：正常情况下在实例化之后在执行populateBean之前调用
-返回值：如果有指定的bean的时候返回false，那么后续的属性填充和属性依赖注入【populateBean】将不会执行，同时后续的postProcessPropertyValues将不会执行,但是初始化和BeanPostProcessor的仍然会执行。
++ boolean postProcessAfterInstantiation(Object bean, String beanName) throws BeansException：正常情况下在实例化之后在执行populateBean之前调用
++ > 返回值：如果有指定的bean的时候返回false，那么后续的属性填充和属性依赖注入【populateBean】将不会执行，同时后续的postProcessPropertyValues将不会执行,但是初始化和BeanPostProcessor的仍然会执行。
 
 ````
 /**
@@ -188,10 +188,10 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, BeanWrapper
     }
 ````	
 	
-public PropertyValues postProcessPropertyValues(PropertyValues pvs, PropertyDescriptor[] pds, Object bean, String beanName)：实例化之后调用，在方法applyPropertyValues【属性填充】之前
-返回值：如果返回null，那么将不会进行后续的属性填充，比如依赖注入等，如果返回的pvs额外的添加了属性，那么后续会填充到该类对应的属性中。
-pvs：PropertyValues对象，用于封装指定类的对象，简单来说就是PropertyValue的集合，里面相当于以key-value形式存放类的属性和值
-pds：PropertyDescriptor对象数组，PropertyDescriptor相当于存储类的属性，不过可以调用set，get方法设置和获取对应属性的值
++ public PropertyValues postProcessPropertyValues(PropertyValues pvs, PropertyDescriptor[] pds, Object bean, String beanName)：实例化之后调用，在方法applyPropertyValues【属性填充】之前
++ > 返回值：如果返回null，那么将不会进行后续的属性填充，比如依赖注入等，如果返回的pvs额外的添加了属性，那么后续会填充到该类对应的属性中。
++ > pvs：PropertyValues对象，用于封装指定类的对象，简单来说就是PropertyValue的集合，里面相当于以key-value形式存放类的属性和值
++ > pds：PropertyDescriptor对象数组，PropertyDescriptor相当于存储类的属性，不过可以调用set，get方法设置和获取对应属性的值
 
 ````
 /**
@@ -218,9 +218,10 @@ if (hasInstAwareBpps || needsDepCheck) {
         }   
         //执行真正的属性填充
         applyPropertyValues(beanName, mbd, bw, pvs);
-````		
-实例
-只是写了InstantiationAwareBeanPostProcessor定义的方法，另外的BeanPostProcessor的方法，请看上一篇文章
+````
+		
+# 实例
++ 只是写了InstantiationAwareBeanPostProcessor定义的方法，另外的BeanPostProcessor的方法，请看上一篇文章
 
 ````
 @Component
@@ -314,10 +315,11 @@ public class MyInstantiationAwareBeanPostProcessor implements InstantiationAware
 }
 ````
 
-源码梳理
-无论是BeanPostProcessor还是InstantiationAwareBeanPostProcessor都是在对象实例化和初始化前后执行的逻辑，因此我们主要的代码都在getBean，doGetBean，cerateBean方法中
-BeanPostProcessor的两个方法的执行源码请看上一篇的文章
-步骤如下：
+# 源码梳理
+
++ 无论是BeanPostProcessor还是InstantiationAwareBeanPostProcessor都是在对象实例化和初始化前后执行的逻辑，因此我们主要的代码都在getBean，doGetBean，cerateBean方法中
++ BeanPostProcessor的两个方法的执行源码请看上一篇的文章
++ 步骤如下：
 [图片上传失败...(image-4658b9-1561472145733)]
 [图片上传失败...(image-824031-1561472145733)]
 [图片上传失败...(image-b7d4b0-1561472145733)]
@@ -327,21 +329,23 @@ BeanPostProcessor的两个方法的执行源码请看上一篇的文章
 [图片上传失败...(image-cd78c-1561472145733)]
 [图片上传失败...(image-2b40a-1561472145733)]
 [图片上传失败...(image-acc5c5-1561472145733)]
-Autowired源码解析
-从源码可以看出，Autowired的功能实现最重要的一个接口就是AutowiredAnnotationBeanPostProcessor，继承关系如下：
+
+# Autowired源码解析
++ 从源码可以看出，Autowired的功能实现最重要的一个接口就是AutowiredAnnotationBeanPostProcessor，继承关系如下：
 [图片上传失败...(image-518665-1561472145733)]
-从继承关系图可以看出，实际上关键的实现了InstantiationAwareBeanPostProcessor这个接口。
-源码实现如下图：
++ 从继承关系图可以看出，实际上关键的实现了InstantiationAwareBeanPostProcessor这个接口。
++ 源码实现如下图：
 [图片上传失败...(image-f8c9e8-1561472145733)]
-总结
+
+# 总结
 源码：
-ioc容器创建Bean的方法是从createBean方法进入的，真正执行创建的Bean的是doCreateBean方法，我们从createBean开始往下走
-调用resolveBeforeInstantiation方法【在doCreatBean之前执行，即是实例化之前】，在内部遍历BeanPostProcessor调用postProcessBeforeInstantiation方法
-如果postProcessBeforeInstantiation方法返回null，那么需要执行实例化的过程，调用doCreatBean实例化Bean。
+> + ioc容器创建Bean的方法是从createBean方法进入的，真正执行创建的Bean的是doCreateBean方法，我们从createBean开始往下走
+> + 调用resolveBeforeInstantiation方法【在doCreatBean之前执行，即是实例化之前】，在内部遍历BeanPostProcessor调用postProcessBeforeInstantiation方法
+> + 如果postProcessBeforeInstantiation方法返回null，那么需要执行实例化的过程，调用doCreatBean实例化Bean。
 doCreateBean内部分为两步：①调用createBeanInstance实例化Bean；②调用populateBean设置Bean的属性
-在populateBean内部分为如下的步骤：
-调用postProcessAfterInstantiation【实例化之后调用】，分为两种情况：①返回false，后续的postProcessPropertyValues将不再执行，属性也不在进行设置；②返回true，程序照常进行，调用postProcessPropertyValues，属性设置的过程正常进行
-执行完populateBean之后将会调用initializeBean【初始化Bean，调用afterPropertiesSet方法】，在内部就涉及到BeanPostProcessor定义的接口了，步骤如下：
-执行applyBeanPostProcessorsBeforeInitialization方法调用postProcessBeforeInitialization【在初始化之前调用】方法
-执行invokeInitMethods方法，内部其实是调用afterPropeertiesSet方法，进行初始化
-执行applyBeanPostProcessorsAfterInitialization，内部调用postProcessAfterInitialization【在实例化之后调用】方法
+> + 在populateBean内部分为如下的步骤：
+> > + 调用postProcessAfterInstantiation【实例化之后调用】，分为两种情况：①返回false，后续的postProcessPropertyValues将不再执行，属性也不在进行设置；②返回true，程序照常进行，调用postProcessPropertyValues，属性设置的过程正常进行
+> + 执行完populateBean之后将会调用initializeBean【初始化Bean，调用afterPropertiesSet方法】，在内部就涉及到BeanPostProcessor定义的接口了，步骤如下：
+> > + 执行applyBeanPostProcessorsBeforeInitialization方法调用postProcessBeforeInitialization【在初始化之前调用】方法
+> > + 执行invokeInitMethods方法，内部其实是调用afterPropeertiesSet方法，进行初始化
+> > + 执行applyBeanPostProcessorsAfterInitialization，内部调用postProcessAfterInitialization【在实例化之后调用】方法
