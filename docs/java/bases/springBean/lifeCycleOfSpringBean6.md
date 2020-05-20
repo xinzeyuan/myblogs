@@ -298,7 +298,7 @@ run方法步骤总结：
 
 2. 动态代理源码分析
 
-![]()
+![](20190809155726731.png)
 
 spring容器或者ApplicationContext中包含很多组件，其中比较重要的如上图所示，包括beanFactory（对象定义描述信息池，单例池、bean的后置处理器池）、BeanFactoryPostProcessor bean工厂后置处理器池、BeanDefinition注册器、BeanDefinitiond读取器等。
 
@@ -308,45 +308,45 @@ bean创建过程为：springboot从beanDefinition池中获取对象，并判断�
 
 springboot加载实例化bean是在刷新上下文步骤完成的，一般实例化用户自定义类是在finishBeanFactoryInitialization方法中完成的。既然要为用户创建并管理bean，那么需要跟踪代码到创建bean处，即DefaultListableBeanFactory的父类AbstractAutowireCapableBeanFactory的doCreateBean方法处，该方法很长，重点在下图部分：
 
-![]()
+![](20181102181146784.png)
 
 初始化bean对象，initializeBean方法如下图所示：
 
-![]()
+![](2018110218122646.png)
 
 该方法主要是在对象初始化时，调用beanFactory中的各个后置处理器，即实现了BeanPostProcessor接口的处理器。
 
-![]()
+![](20181102181238359.png)
 
 在这些后置处理器中，有一个叫AnnotationAwareAspectJAutoProxyCreator的处理器，在其父类AbstractAutoProxyCreator中实现了BeanPostProcessor接口的前后处理方法，前置处理方法直接返回bean，后置方法如下图所示：
 
-
+![](20181102181249470.png)
 
 wrapIfNecessary方法内容如下：
 
-![]()
+![](20181102181301933.png)
 
 这个方法先从缓存中获取，如果获取到对象了则直接返回，否则就会创建一个对象的代理，缓存代理并返回代理对象。createProxy源码如下：
 
-![]()
+![](20181102181313814.png)
 
 该方法主要是创建一个代理工厂，并对代理工厂进行相关设置，重点在最后一句代理工厂获取代理。
 
-![]()
+![](20181102181331262.png)
 
 进入createAopProxy方法
 
-![]()
+![](20181102181342683.png)
 
 getAopProxyFactory返回一个AopProxyFactory类型对象。AopProxyFactory是一个接口，并且只有一个实现类DefaultAopProxyFactory。接下来看看createAopProxy方法。
 
-![]()
+![](20181102181355126.png)
 
 该方法根据给定的类配置来创建不同的代理 AopProxy，该方法返回一个AopProxy，AopProxy是一个接口，有3个实现类：CglibAopProxy、JdkDynamicAopProxy、ObjenesisCglibAopProxy(该类为CglibAopProxy的子类)。
 
 JdkDynamicAopProxy的继承关系如下：
 
-![]()
+![](20181102181406482.png)
 
 CglibAopProxyCglibAopProxy 继承结构没什么，主要是众多内部类，这些内部类是为了实现了 Cglib 的各种回调而实现的。主要实现了 MethodInterceptor 接口， 
 
@@ -354,16 +354,16 @@ Callback 接口，Joinpoint 接口，Invocation 接口等待，总之是实现�
 
 最终返回一个AopProxy对象，可能是jdk动态代理也可能是CGLIB的动态代理。回到getProxy方法中，根据AopProxy创建具体对象。
 
-![]()
+![](20181102181532608.png)
 
 下图为JdkDynamicAopProxy方式创建代理：
 
-![]()
+![](20181102181520271.png)
 
 下图为CglibAopProxy方式创建代理：
 
-![]()
+![](20181102181508585.png)
 
 如上2图所示，这里我们能看到jdk或者CGLIB包中的相关类了，到此，代理对象创建完毕。重点类和方法调用时序图：
 
-![]()
+![](20181102181454616.png)
