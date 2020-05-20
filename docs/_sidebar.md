@@ -40,3 +40,4 @@
   - [聊聊spring的那些扩展机制](java/bases/springBean/lifeCycleOfSpringBean3.md)
   - [Spring配置文件schema约束](java/bases/springSchemal/springSchemal.md)
   - [Spring探秘|妙用BeanPostProcessor](java/bases/springBean/lifeCycleOfSpringBean4.md)
+  - [InstantiationAwareBeanPostProcessor源码解析](java/bases/springBean/lifeCycleOfSpringBean5.md)
