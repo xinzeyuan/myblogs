@@ -267,36 +267,36 @@ protected void prepareBeanFactory(ConfigurableListableBeanFactory beanFactory) {
 ````
 
 run方法步骤总结：
-    1. 获取spring应用执行监听器(SpringApplicationRunListeners)
-    2. 利用spring应用执行监听器广播启动事件
-    3. 准备运行的环境(dev，test)，根据环境解析不同的配置文件
-         3.1 检查webEnvironment属性，如果是web程序，那么创建一个StandardServletEnvironment对象，否则创建StandardEnvironment对象
-         3.2 准备运行环境配置，根据环境(dev，test)，加载相关配置文件
-         3.3 利用spring应用执行监听器广播运行环境加载完毕的事件
-    4. 创建spring应用上下文，如果是web程序，创建web应用上下文实例
-    5. 准备spring应用上下文
-        5.1 利用spring初始化器，对上下文做初始化操作
-        5.2 利用spring应用执行监听器广播上下文准备好的事件
-        5.3 向beanFactory注册springApplicationArguments和springBootBanner单例bean
-        5.4 向上下文注册启动类的bean，也就是调用SpringApplication.run(Application.class, args);的类
-        5.5 利用spring应用执行监听器广播上下文加载完毕事件
-    6. 刷新spring应用上下文
-        6.1 为刷新上下文信息做准备。例如清空缓存，初始化属性信息，验证必要的属性等
-        6.2 获取应用上下文的beanFactory
-        6.3 对beanFactory设置相关参数
-        6.4 为beanFactory添加后置处理器WebApplicationContextServletContextAwareProcessor，并忽略ServletContextAware
-        6.5 调用beanFactory的后置处理器
-        6.6 注册bean的后置处理器，这些后置处理器将在bean的创建过程中被调用
-        6.7 初始化事件广播器(EventMulticaster)，看是否有自定义的事件广播bean(applicationEventMulticaster)，如果有则使用自定义的，否则就用默认的。
-        6.8 初始化其他特殊的bean，比如创建serverlet容器相关的bean
-        6.9 向事件广播器EventMulticaster中添加各种事件监听器
-        6.10 实例化所有单例bean
-        6.11 结束刷新，利用EventMulticaster广播上下文刷新完成事件
-    7. 执行应用runner(或命令行runner)
-    8. 利用spring应用执行监听器广播启动完成事件
+1. 获取spring应用执行监听器(SpringApplicationRunListeners)
+2. 利用spring应用执行监听器广播启动事件
+3. 准备运行的环境(dev，test)，根据环境解析不同的配置文件
+ 3.1 检查webEnvironment属性，如果是web程序，那么创建一个StandardServletEnvironment对象，否则创建StandardEnvironment对象
+ 3.2 准备运行环境配置，根据环境(dev，test)，加载相关配置文件
+ 3.3 利用spring应用执行监听器广播运行环境加载完毕的事件
+4. 创建spring应用上下文，如果是web程序，创建web应用上下文实例
+5. 准备spring应用上下文
+ 5.1 利用spring初始化器，对上下文做初始化操作
+ 5.2 利用spring应用执行监听器广播上下文准备好的事件
+ 5.3 向beanFactory注册springApplicationArguments和springBootBanner单例bean
+ 5.4 向上下文注册启动类的bean，也就是调用SpringApplication.run(Application.class, args);的类
+ 5.5 利用spring应用执行监听器广播上下文加载完毕事件
+6. 刷新spring应用上下文
+ 6.1 为刷新上下文信息做准备。例如清空缓存，初始化属性信息，验证必要的属性等
+ 6.2 获取应用上下文的beanFactory
+ 6.3 对beanFactory设置相关参数
+ 6.4 为beanFactory添加后置处理器WebApplicationContextServletContextAwareProcessor，并忽略ServletContextAware
+ 6.5 调用beanFactory的后置处理器
+ 6.6 注册bean的后置处理器，这些后置处理器将在bean的创建过程中被调用
+ 6.7 初始化事件广播器(EventMulticaster)，看是否有自定义的事件广播bean(applicationEventMulticaster)，如果有则使用自定义的，否则就用默认的。
+ 6.8 初始化其他特殊的bean，比如创建serverlet容器相关的bean
+ 6.9 向事件广播器EventMulticaster中添加各种事件监听器
+ 6.10 实例化所有单例bean
+ 6.11 结束刷新，利用EventMulticaster广播上下文刷新完成事件
+7. 执行应用runner(或命令行runner)
+8. 利用spring应用执行监听器广播启动完成事件
     
 
-2. 动态代理源码分析
+# 2. 动态代理源码分析
 
 ![](20190809155726731.png)
 
