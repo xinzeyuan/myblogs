@@ -42,3 +42,4 @@
   - [Spring探秘|妙用BeanPostProcessor](java/bases/springBean/lifeCycleOfSpringBean4.md)
   - [InstantiationAwareBeanPostProcessor源码解析](java/bases/springBean/lifeCycleOfSpringBean5.md)
   - [springboot(4) 启动过程及实现对bean动态代理源码分析](java/bases/springBean/lifeCycleOfSpringBean6.md)
+  - [Spring Event事件通知机制 源码学习](java/bases/event/springEvent.md)
