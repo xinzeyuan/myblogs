@@ -32,6 +32,7 @@
   - [InstantiationAwareBeanPostProcessor源码解析](java/bases/springBean/lifeCycleOfSpringBean5.md)
   - [springboot(4) 启动过程及实现对bean动态代理源码分析](java/bases/springBean/lifeCycleOfSpringBean6.md)
   - [Spring源码系列 — Bean生命周期](java/bases/springBean/lifeCycleOfSpringBean7.md)
+  - [spring源码解析之AOP原理](java/bases/springBean/lifeCycleOfSpringBean8.md)
   - [TCP为什么三次握手而不是两次握手](java/bases/TCP/threeHands.md)
   - [四次挥手，为什么是四次](java/bases/TCP/fourWaves.md)
   - [浏览器存储](java/bases/browser/browserStorage.md)
