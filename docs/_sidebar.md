@@ -19,6 +19,7 @@
   - [MySQL的万字总结](java/mysql/summary.md)
   
 - 万花筒
+  - [互联网 Java 工程师进阶知识完全扫盲](java/bases/java.md)
   - [Java 转型问题（向上转型和向下转型）](java/bases/transformation.md)
   - [RPC和Dubbo简介）](java/bases/rpcAndDubbo.md)
   - [通俗易懂 RPC、REST、Dubbo、HTTP、RMI 的区别与联系）](java/bases/rpc.md)
