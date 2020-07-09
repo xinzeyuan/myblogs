@@ -17,6 +17,7 @@
 - 数据库
   - [Mysql 主从复制](java/mysql/replication.md)
   - [MySQL的万字总结](java/mysql/summary.md)
+  - [MySQL日志系统：redo log、binlog、undo log 区别与作用](java/mysql/mysql.md)
   
 - 万花筒
   - [互联网 Java 工程师进阶知识完全扫盲](java/bases/java.md)
