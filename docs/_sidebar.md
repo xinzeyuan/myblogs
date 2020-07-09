@@ -47,3 +47,4 @@
   - [Spring配置文件schema约束](java/bases/springSchemal/springSchemal.md)
   - [Spring Event事件通知机制 源码学习](java/bases/event/springEvent.md)
   - [rocketMq事务消息原理与二阶段提交](java/bases/PC/rocketmq.md) 	
+  - [分布式事务解决方案汇总：2PC、3PC、消息中间件、TCC、状态机+重试+幂等（转）](java/bases/PC/transaction.md) 
