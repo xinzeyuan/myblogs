@@ -45,6 +45,7 @@
   - [对Java Serializable（序列化）的理解和总结](java/bases/serializable/serializable.md)
   - [HttpClient](java/bases/httpclient/httpclient.md)
   - [ideal](java/bases/ideal/ideal.md)
+  - [ideal常用快捷键](java/bases/ideal/keymap.md)
   - [Spring配置文件schema约束](java/bases/springSchemal/springSchemal.md)
   - [Spring Event事件通知机制 源码学习](java/bases/event/springEvent.md)
   - [rocketMq事务消息原理与二阶段提交](java/bases/PC/rocketmq.md) 	
