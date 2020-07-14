@@ -37,3 +37,14 @@ shift+shift非常强大，可搜索类、资源、配置项、方法等，还能
 ### 8. 查看接口的实现类
 
 IDEA 风格 ctrl + alt +B     或者     Ctrl+Alt+鼠标左键
+
+Ctrl +P 查看方法参数
+
+Ctrl +Q 查看方法文档
+
+Ctrl +U 方法声明处
+
+Ctrl+Shift+I 查看定义
+
+Alt+F1 查看文件所在目录位置
+
