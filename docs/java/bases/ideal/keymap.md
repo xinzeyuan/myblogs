@@ -48,3 +48,27 @@ Ctrl+Shift+I 查看定义
 
 Alt+F1 查看文件所在目录位置
 
+Ctrl +D 复制行
+
+Ctrl +X 删除行/剪贴行
+
+Ctrl +W 多次选中文本
+
+Ctrl + O 重写方法
+
+Ctrl +I 实现方法
+
+Alt +Insert setter/getter
+
+Alt +Enter 导包
+
+Ctrl +Alt+T try/catchif/else for
+Ctrl +Alt+L 格式化
+
+Ctrl +Alt+O 优化导入的类包
+
+双击shift 打开任意东西
+
+Ctrl +E 最近打开文件
+
+
