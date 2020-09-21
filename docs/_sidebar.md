@@ -50,5 +50,7 @@
   - [Spring Event事件通知机制 源码学习](java/bases/event/springEvent.md)
   - [rocketMq事务消息原理与二阶段提交](java/bases/PC/rocketmq.md) 	
   - [分布式事务解决方案汇总：2PC、3PC、消息中间件、TCC、状态机+重试+幂等（转）](java/bases/PC/transaction.md) 
+  - [分布式事务讲解](java/bases/PC/transaction2.md)
   - [大型网站之网站静态化（综合篇）](java/bases/web/html.md)
   - [全网最强HashMap讲解](java/bases/hashmap.md)
+  
