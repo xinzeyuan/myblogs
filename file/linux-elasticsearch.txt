@@ -1,0 +1,46 @@
+内核版本提升后，对每个线程的内存分配提升了，elasticsearch需要至少4096的线程才能正常启动。
+所以需要为虚拟机分配至少1.5G以上的内存。
+
+升级内核
+rpm –import http://mirror.centos.org/centos/RPM-GPG-KEY-CentOS-7
+
+rpm -Uvh http://www.elrepo.org/elrepo-release-6-8.el6.elrepo.noarch.rpm
+
+yum --enablerepo=elrepo-kernel install kernel-lt -y
+
+vim /etc/grub.conf
+修改文件中内容，保证使用新内核启动。
+    default=0
+
+重启系统
+
+修改elasticsearch需要的系统配置。
+vi /etc/security/limits.conf
+增加下述内容。
+* soft nofile 65536
+
+* hard nofile 65536
+
+
+
+
+vi /etc/security/limits.d/90-nproc.conf
+修改下述内容
+*          soft    nproc     4096
+root       soft    nproc     unlimited
+
+
+
+vi /etc/sysctl.conf 
+新增下述内容
+vm.max_map_count=655360
+
+
+使用命令，让sysctl配置生效
+sysctl -p
+
+
+修改elasticsearch的配置文件，设置可访问的客户端。0.0.0.0代表任意客户端访问。
+vi config/elasticsearch.yml
+修改下述内容
+etwork.host: 0.0.0.0
