@@ -18,6 +18,7 @@
   - [Mysql 主从复制](java/mysql/replication.md)
   - [MySQL的万字总结](java/mysql/summary.md)
   - [MySQL日志系统：redo log、binlog、undo log 区别与作用](java/mysql/mysql.md)
+  - [使用Spring实现读写分离（ MySQL实现主从复制）](java/mysql/mysql2.md)
   
 - 万花筒
   - [互联网 Java 工程师进阶知识完全扫盲](java/bases/java.md)
@@ -55,4 +56,5 @@
   - [分布式事务讲解](java/bases/PC/transaction2.md)
   - [大型网站之网站静态化（综合篇）](java/bases/web/html.md)
   - [全网最强HashMap讲解](java/bases/hashmap.md)
+  
   
