@@ -2,11 +2,12 @@
   - Nodejs
   - [Github Pages + docsify](java/docsify/docsify.md)
 - 设计模式
-  - [java设计模式六大原则](desgin-pattern/principle.md)
-  - [第一章节](desgin-pattern/Java面试必备：手写单例模式.md)
-  - [工厂模式](desgin-pattern/工厂模式超详解（代码示例）.md)
-  - [原型模式](desgin-pattern/设计模式之原型模式.md)
-  - [代理模式](desgin-pattern/设计模式之代理模式.md)
+  - [java设计模式六大原则](java/bases/desgin-pattern/principle.md)
+  - [Spring 中使用了哪些设计模式？](java/bases/desgin-pattern/spring.md)
+  - [第一章节](java/bases/desgin-pattern/Java面试必备：手写单例模式.md)
+  - [工厂模式](java/bases/desgin-pattern/工厂模式超详解（代码示例）.md)
+  - [原型模式](java/bases/desgin-pattern/设计模式之原型模式.md)
+  - [代理模式](java/bases/desgin-pattern/设计模式之代理模式.md)
 
 - Spring框架
 
@@ -38,6 +39,7 @@
   - [springboot(4) 启动过程及实现对bean动态代理源码分析](java/bases/springBean/lifeCycleOfSpringBean6.md)
   - [Spring源码系列 — Bean生命周期](java/bases/springBean/lifeCycleOfSpringBean7.md)
   - [spring源码解析之AOP原理](java/bases/springBean/lifeCycleOfSpringBean8.md)
+  - [请别再问Spring Bean的生命周期了！](java/bases/springBean/lifeCycleOfSpringBean9.md)
   - [TCP为什么三次握手而不是两次握手](java/bases/TCP/threeHands.md)
   - [四次挥手，为什么是四次](java/bases/TCP/fourWaves.md)
   - [浏览器存储](java/bases/browser/browserStorage.md)
@@ -56,5 +58,8 @@
   - [分布式事务讲解](java/bases/PC/transaction2.md)
   - [大型网站之网站静态化（综合篇）](java/bases/web/html.md)
   - [全网最强HashMap讲解](java/bases/hashmap.md)
+  - [过滤器，拦截器，监听器的区别](java/bases/filter/filter.md) 
+  - [BeanFactory和FactoryBean的区别](java/bases/beanFactory/beanFactory.md)
+  - [BeanFactory和ApplicationContext的区别](java/bases/beanFactory/beanFactory2.md)
   
   
