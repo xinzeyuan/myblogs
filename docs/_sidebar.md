@@ -3,6 +3,7 @@
   - [Github Pages + docsify](java/docsify/docsify.md)
 - 设计模式
   - [java设计模式六大原则](java/bases/desgin-pattern/principle.md)
+  - [Java开发设计——七大原则](java/bases/desgin-pattern/principle2.md)
   - [Spring 中使用了哪些设计模式？](java/bases/desgin-pattern/spring.md)
   - [第一章节](java/bases/desgin-pattern/Java面试必备：手写单例模式.md)
   - [工厂模式](java/bases/desgin-pattern/工厂模式超详解（代码示例）.md)
